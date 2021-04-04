@@ -38,7 +38,7 @@ impl<'b> Frame<'b> {
         u16::from_le_bytes(self.data[data_len..].try_into().unwrap())
     }
 
-    pub fn frame_data(&self) -> &[u8] {
+    pub fn payload(&self) -> &[u8] {
         let data_len = self.data.len() - 2;
         &self.data[2..data_len]
     }
@@ -97,7 +97,7 @@ pub struct AddData;
 
 /// building frames conveniently
 /// ```
-/// use modbus::frame::build_frame;
+/// use modbus::rtu::frame::build_frame;
 /// let mut buff = [0u8; 20];
 /// let frame = build_frame(&mut buff)
 ///                 .address(1)
@@ -210,7 +210,7 @@ mod tests {
 
         assert_eq!(frame.address(), 0);
         assert_eq!(frame.function(), defines::function::Function(1));
-        assert_eq!(frame.frame_data(), [2, 3, 4, 5, 6, 7]);
+        assert_eq!(frame.payload(), [2, 3, 4, 5, 6, 7]);
         assert_eq!(frame.crc().to_le_bytes(), [8, 9]);
     }
 
@@ -242,7 +242,7 @@ mod tests {
         assert_eq!(13, frame.raw_bytes().len());
         assert_eq!(123, frame.address());
         assert_eq!(defines::function::Function(213), frame.function());
-        assert_eq!([1, 0, 4, 2, 3, 0, 5, 0, 6], frame.frame_data());
+        assert_eq!([1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
         let frame_crc = frame.crc();
         let crc = crc::calculate(&buff[..11]);
