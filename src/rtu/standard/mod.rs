@@ -1,4 +1,4 @@
-mod view;
+pub mod view;
 
 /// misc timing requirements
 pub mod timing {
