@@ -49,6 +49,8 @@ assert_eq!(frame.crc().to_le_bytes(), [0x76, 0x87]);
 #![no_std]
 // this crate is intended for use in both hosted and embedded contexts. No allocations or other conveniences
 
+// pub once exists
+mod ascii;
 pub mod device;
 pub mod entity;
 pub mod error;
