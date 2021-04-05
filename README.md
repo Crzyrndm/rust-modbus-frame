@@ -13,8 +13,7 @@ There's two reasons for *this* crate to exist
      - I'm an embedded developer. Wasteful FLASH/RAM usage and dynamic allocations are out
    - Needs to support custom / non-standard function codes (e.g. 0x46).
      - Some of the devices I want to communicate with use more than just the standard register and coil commands, so libraries exposing just 'read_holding_registers' and co are not going to cut it
-2) Probably more importantly though, it's a way to learn more Rust
-   - I'm still very new to Rust and modbus is a large enough target to prove interesting, yet small enough to be something that can be useful in a day or two. Initial focus on the RTU protocol, since that's what I have an application for, may come back and do ASCII for completeness later
+2) Probably more importantly though, it's a way to learn more Rust in an application I'm quite familiar with and have a use for
 
 # About
 This crate is about providing the building blocks for device communicating using the modbus protocol (which boils down to a header and crc wrapping some data). This is represented by the Frame struct
