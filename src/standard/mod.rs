@@ -1,16 +1,11 @@
-//! defines for standard RTU
-//! e.g. functions, exceptions, timeouts
-//!
+/*!
+defines for standard RTU
+functions, exceptions, timeouts
+*/
 
 /// function codes as documented by https://en.wikipedia.org/wiki/Modbus#Available_function/command_codes
 pub mod function {
-    #[derive(Debug, PartialEq, PartialOrd, Clone)]
-    pub struct Function(pub u8);
-    impl From<u8> for Function {
-        fn from(b: u8) -> Self {
-            Function(b)
-        }
-    }
+    pub use crate::Function;
 
     /// Request:
     ///     Address of first coil to read (16-bit)
@@ -108,14 +103,7 @@ pub mod function {
 
 // Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 pub mod exception {
-    #[derive(Debug, PartialEq, PartialOrd, Clone)]
-    pub struct Exception(pub u8);
-    impl From<u8> for Exception {
-        fn from(b: u8) -> Self {
-            Exception(b)
-        }
-    }
-
+    pub use crate::Exception;
     /// Function code received in the query is not recognized or allowed by slave
     pub const ILLEGAL_FUNCTION: Exception = Exception(1);
     /// Data address of some or all the required entities are not allowed or do not exist in slave
@@ -140,82 +128,4 @@ pub mod exception {
     pub const GATEWAY_DEVICE_NO_RESPONSE: Exception = Exception(11);
 }
 
-/// entity numbers are the long form ids of inputs/coils/registers
-/// always 5 or 6 digits
-///
-/// The first digit identifies the type:
-/// - 0 => coil
-/// - 1 => discrete input
-/// - 3 => input register
-/// - 4 => holding register
-///
-/// The remaining digits identify the location in a 1-indexed format
-/// - NOTE: address is 0-indexed
-///
-/// examples:
-/// - 30001 -> input register at address 99
-/// - 30100 -> input register at address 99
-/// - 40001 -> holding register at address 0
-/// - 40100 -> holding register at address 99
-pub mod entity {
-    use core::convert::TryFrom;
-
-    #[derive(Debug, PartialEq, PartialOrd, Clone)]
-    pub struct Entity<'a>(pub &'a str);
-    impl<'a> From<&'a str> for Entity<'a> {
-        fn from(s: &'a str) -> Self {
-            Entity(s)
-        }
-    }
-
-    pub enum EntityType {
-        Coil,
-        DiscreteInput,
-        InputRegister = 3,
-        HoldingRegister,
-    }
-
-    impl<'a> TryFrom<&Entity<'a>> for EntityType {
-        type Error = &'static str;
-
-        fn try_from(value: &Entity) -> Result<Self, Self::Error> {
-            if value.0.len() != 5 && value.0.len() != 6 {
-                return Err("invalid entity length");
-            }
-            if let Some(c) = value.0.chars().nth(0) {
-                return match c {
-                    '0' => Ok(EntityType::Coil),
-                    '1' => Ok(EntityType::DiscreteInput),
-                    '3' => Ok(EntityType::InputRegister),
-                    '4' => Ok(EntityType::HoldingRegister),
-                    _ => Err("first character was not a known entity type"),
-                };
-            }
-            unreachable!("length already checked");
-        }
-    }
-
-    impl<'a> TryFrom<&Entity<'a>> for u16 {
-        type Error = &'static str;
-
-        fn try_from(entity: &Entity) -> Result<u16, Self::Error> {
-            if entity.0.len() != 5 && entity.0.len() != 6 {
-                return Err("invalid entity length");
-            }
-            let address_str = &entity.0[1..];
-            let mut address = 0u16;
-            for c in address_str.as_bytes() {
-                address *= 10;
-                let next = c - '0' as u8;
-                if next >= 10 {
-                    return Err("invalid characters in entity");
-                }
-                address += next as u16;
-            }
-            if address == 0 {
-                return Err("entity location cannot be 0");
-            }
-            Ok(address - 1) // address is 0-indexed
-        }
-    }
-}
+pub mod view;

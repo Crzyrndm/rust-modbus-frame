@@ -1,7 +1,5 @@
-use crate::rtu::{self, crc, Errors};
+use crate::{device::Device, error, rtu::crc, Function, Result};
 use core::convert::{TryFrom, TryInto};
-
-use super::defines;
 
 /// Frame provides functions to view a series of bytes as a modbus data frame
 #[derive(PartialEq, Debug, Clone)]
@@ -29,7 +27,7 @@ impl<'b> Frame<'b> {
         self.data[0]
     }
 
-    pub fn function(&self) -> defines::function::Function {
+    pub fn function(&self) -> Function {
         self.data[1].into()
     }
 
@@ -48,33 +46,31 @@ impl<'b> Frame<'b> {
     }
 }
 
-pub trait AsFrame<'b> {
-    fn as_frame(&'b self) -> Frame<'b>;
-}
-
-pub fn validate(bytes: &[u8]) -> Errors {
+/// a Frame has minimal requirements:
+/// - be atleast 4 bytes. ANything less cannot exist
+/// - have a valid CRC as the final 2 bytes
+///
+/// Commands and responses may impose tighter restrictions, but the raw frame is left open
+/// (e.g. all of the standard frames require the length be <= 255)
+pub fn validate(bytes: &[u8]) -> error::Error {
     if bytes.len() < 4 {
         // incomplete / invalid data packet
-        return Errors::TooShort;
-    }
-    if bytes.len() > 255 {
-        // too large / multiple packets
-        return Errors::TooLong;
+        return error::Error::InvalidLength;
     }
     let data_len = bytes.len() - 2;
     let msg_crc = crc::calculate(&bytes[0..data_len]);
     if bytes[data_len..] != msg_crc.to_le_bytes() {
-        return Errors::InvalidCrC; // invalid crc
+        return error::Error::InvalidCrC; // invalid crc
     }
-    return Errors::None;
+    return error::Error::None;
 }
 
 impl<'b> TryFrom<&'b [u8]> for Frame<'b> {
-    type Error = rtu::Errors;
+    type Error = error::Error;
 
-    fn try_from(bytes: &'b [u8]) -> Result<Self, Self::Error> {
+    fn try_from(bytes: &'b [u8]) -> Result<Self> {
         match validate(bytes) {
-            Errors::None => Ok(Frame { data: bytes }),
+            Self::Error::None => Ok(Frame { data: bytes }),
             other => Err(other),
         }
     }
@@ -98,10 +94,12 @@ pub struct AddData;
 /// building frames conveniently
 /// ```
 /// use modbus::rtu::frame::build_frame;
+/// use modbus::device::Device;
+/// use modbus::Function;
 /// let mut buff = [0u8; 20];
 /// let frame = build_frame(&mut buff)
-///                 .address(1)
-///                 .function(2)
+///                 .for_device(&Device::new(1))
+///                 .function(Function(2))
 ///                 .register(3)
 ///                 .to_frame();
 /// assert_eq!(frame.raw_bytes(), [1, 2, 0, 3, 224, 25]);
@@ -130,8 +128,8 @@ impl<'b, STATE> Builder<'b, STATE> {
 }
 
 impl<'b> Builder<'b, Initial> {
-    pub fn address<Address: Into<u8>>(self, address: Address) -> Builder<'b, AddFunction> {
-        self.buffer[self.idx] = address.into();
+    pub fn for_device(self, device: &Device) -> Builder<'b, AddFunction> {
+        self.buffer[self.idx] = device.address();
         Builder {
             buffer: self.buffer,
             idx: 1,
@@ -141,11 +139,8 @@ impl<'b> Builder<'b, Initial> {
 }
 
 impl<'b> Builder<'b, AddFunction> {
-    pub fn function<Function: Into<rtu::defines::function::Function>>(
-        self,
-        function: Function,
-    ) -> Builder<'b, AddData> {
-        self.buffer[self.idx] = function.into().0;
+    pub fn function(self, function: Function) -> Builder<'b, AddData> {
+        self.buffer[self.idx] = function.0;
         Builder {
             buffer: self.buffer,
             idx: 2,
@@ -198,7 +193,12 @@ impl<'b> Builder<'b, AddData> {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_frame, crc, defines, Frame};
+    use super::build_frame;
+    use crate::{
+        device::Device,
+        rtu::{crc, frame::Frame},
+        Function,
+    };
 
     #[test]
     fn test_frame_views() {
@@ -209,7 +209,7 @@ mod tests {
         let frame = unsafe { Frame::new_unchecked(&test_data[..]) };
 
         assert_eq!(frame.address(), 0);
-        assert_eq!(frame.function(), defines::function::Function(1));
+        assert_eq!(frame.function(), Function(1));
         assert_eq!(frame.payload(), [2, 3, 4, 5, 6, 7]);
         assert_eq!(frame.crc().to_le_bytes(), [8, 9]);
     }
@@ -223,12 +223,12 @@ mod tests {
         assert_eq!(20, frame.bytes_remaining());
         assert_eq!(0, frame.state().len());
         // function state
-        let frame = frame.address(123);
+        let frame = frame.for_device(&Device::new(123));
         assert_eq!(1, frame.bytes_consumed());
         assert_eq!(19, frame.bytes_remaining());
         assert_eq!([123], frame.state());
         // data state
-        let frame = frame.function(213);
+        let frame = frame.function(Function(213));
         assert_eq!(2, frame.bytes_consumed());
         assert_eq!(18, frame.bytes_remaining());
         assert_eq!([123, 213], frame.state());
@@ -241,7 +241,7 @@ mod tests {
         let frame = frame.to_frame();
         assert_eq!(13, frame.raw_bytes().len());
         assert_eq!(123, frame.address());
-        assert_eq!(defines::function::Function(213), frame.function());
+        assert_eq!(Function(213), frame.function());
         assert_eq!([1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
         let frame_crc = frame.crc();
@@ -251,7 +251,8 @@ mod tests {
 
     #[test]
     fn test_device_validate_msg() {
-        use super::{validate, Errors};
+        use super::validate;
+        use crate::error;
 
         const MAX_LEN: usize = 300;
         const TEST_ADDRESS: u8 = 2;
@@ -262,9 +263,9 @@ mod tests {
             match len {
                 0..=3 => {
                     // too short, no point doing address/crc shenanigans
-                    assert!(Errors::TooShort == validate(msg));
+                    assert!(error::Error::InvalidLength == validate(msg));
                 }
-                4..=255 => {
+                _ => {
                     msg[0] = TEST_ADDRESS; // valid address
                     msg[1] = len as u8; // function cade == len
                     msg[2..] // fill the rest with incrementing numbers
@@ -272,17 +273,13 @@ mod tests {
                         .enumerate()
                         .for_each(|(i, v)| *v = i as u8);
 
-                    assert!(Errors::InvalidCrC == validate(msg));
+                    assert!(error::Error::InvalidCrC == validate(msg));
                     // calculate actual crc
                     let data_len = msg.len() - 2;
                     let msg_crc_bytes = crc::calculate(&msg[0..data_len]).to_le_bytes();
                     msg[data_len] = msg_crc_bytes[0];
                     msg[data_len + 1] = msg_crc_bytes[1];
-                    assert!(Errors::None == validate(msg));
-                }
-                _ => {
-                    // too long, no point doing address/crc shenanigans
-                    assert!(Errors::TooLong == validate(msg));
+                    assert!(error::Error::None == validate(msg));
                 }
             }
         }
