@@ -1,6 +1,6 @@
 /*!
 defines for standard RTU
-functions, exceptions, timeouts
+functions, exceptions, ..?
 */
 
 /// function codes as documented by https://en.wikipedia.org/wiki/Modbus#Available_function/command_codes
@@ -101,7 +101,7 @@ pub mod function {
     pub const WRITE_FILE: Function = Function(21);
 }
 
-// Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
+/// Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 pub mod exception {
     pub use crate::Exception;
     /// Function code received in the query is not recognized or allowed by slave
@@ -127,5 +127,3 @@ pub mod exception {
     /// Specialized for Modbus gateways. Sent when slave fails to respond
     pub const GATEWAY_DEVICE_NO_RESPONSE: Exception = Exception(11);
 }
-
-pub mod view;
