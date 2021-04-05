@@ -14,7 +14,7 @@ There's two reasons for *this* crate to exist
    - Needs to support custom / non-standard function codes (e.g. 0x46).
      - Some of the devices I want to communicate with use more than just the standard register and coil commands, so libraries exposing just 'read_holding_registers' and co are not going to cut it
 2) Probably more importantly though, it's a way to learn more Rust
-   - I'm still very new to Rust and modbus is a large enough target to prove interesting, yet small enough to be something that can be useful in a day or two. Initial focus on the RTU protocol, since that's what I have an application for, may come back and do ASCII/TCP for completeness later
+   - I'm still very new to Rust and modbus is a large enough target to prove interesting, yet small enough to be something that can be useful in a day or two. Initial focus on the RTU protocol, since that's what I have an application for, may come back and do ASCII for completeness later
 
 # About
 This crate is about providing the building blocks for device communicating using the modbus protocol (which boils down to a header and crc wrapping some data). This is represented by the Frame struct
@@ -23,6 +23,7 @@ This crate is about providing the building blocks for device communicating using
 ```rust
 use std::convert::TryFrom;
 use modbus::rtu::frame;
+use modbus::device::Device;
 use modbus::standard::function;
 
 // incoming bytes
@@ -31,7 +32,7 @@ let bytes: &[u8] = &[0x11, 0x03, 0x00, 0x6B, 0x00, 0x03, 0x76, 0x87];
 // and that the crc is valid.
 // frame::Frame is a borrow of the slice providing named accesor functions  for the bytes within
 if let Ok(frame) = frame::Frame::try_from(bytes) {
-    assert_eq!(frame.address(), 0x11);
+    assert_eq!(frame.device(), Device::new(0x11));
     assert_eq!(frame.function(), function::READ_HOLDING_REGISTERS);
     assert_eq!(frame.payload(), [0x00, 0x6B, 0x00, 0x03]);
     assert_eq!(frame.crc().to_le_bytes(), [0x76, 0x87]);
@@ -57,7 +58,7 @@ let frame: frame::Frame = frame::build_frame(&mut buffer)
                                     .register(0x03)
                                     .to_frame();
 
-assert_eq!(frame.address(), 0x11);
+assert_eq!(frame.device(), Device::new(0x11));
 assert_eq!(frame.function(), function::READ_HOLDING_REGISTERS);
 assert_eq!(frame.payload(), [0x00, 0x6B, 0x00, 0x03]);
 assert_eq!(frame.crc().to_le_bytes(), [0x76, 0x87]);

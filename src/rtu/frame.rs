@@ -1,4 +1,4 @@
-use crate::{device::Device, error, rtu::crc, Function, Result};
+use crate::{device::Device, error, rtu::crc, Exception, Function, Result};
 use core::convert::{TryFrom, TryInto};
 
 /// Frame provides functions to view a series of bytes as a modbus data frame
@@ -23,12 +23,12 @@ impl<'b> Frame<'b> {
         Frame { data: bytes }
     }
 
-    pub fn address(&self) -> u8 {
-        self.data[0]
+    pub fn device(&self) -> Device {
+        Device::new(self.data[0])
     }
 
     pub fn function(&self) -> Function {
-        self.data[1].into()
+        Function(self.data[1])
     }
 
     pub fn crc(&self) -> u16 {
@@ -147,6 +147,12 @@ impl<'b> Builder<'b, AddFunction> {
             _state: AddData {},
         }
     }
+
+    pub fn exception(self, function: Function, exception: Exception) -> Frame<'b> {
+        self.function(Function(function.0 | 0x80))
+            .byte(exception.0)
+            .to_frame()
+    }
 }
 
 impl<'b> Builder<'b, AddData> {
@@ -208,7 +214,7 @@ mod tests {
         // getting the crc right only obscures the purpose
         let frame = unsafe { Frame::new_unchecked(&test_data[..]) };
 
-        assert_eq!(frame.address(), 0);
+        assert_eq!(frame.device(), Device::new(0));
         assert_eq!(frame.function(), Function(1));
         assert_eq!(frame.payload(), [2, 3, 4, 5, 6, 7]);
         assert_eq!(frame.crc().to_le_bytes(), [8, 9]);
@@ -240,7 +246,7 @@ mod tests {
         // as frame
         let frame = frame.to_frame();
         assert_eq!(13, frame.raw_bytes().len());
-        assert_eq!(123, frame.address());
+        assert_eq!(Device::new(123), frame.device());
         assert_eq!(Function(213), frame.function());
         assert_eq!([1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
