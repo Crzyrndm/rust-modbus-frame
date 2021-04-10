@@ -2,7 +2,6 @@ use crate::builder::Encoding;
 
 pub mod crc;
 pub mod frame;
-pub mod standard;
 pub mod timing;
 pub mod view;
 
