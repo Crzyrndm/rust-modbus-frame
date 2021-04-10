@@ -96,7 +96,7 @@ impl<'b> TryFrom<&'b mut [u8]> for Frame<'b> {
 }
 
 pub fn build<'b>(buffer: &'b mut [u8]) -> Builder<Frame<'b>, RTU, Initial> {
-    Builder::from(RTU { buffer, idx: 0 })
+    Builder::from(RTU::new(buffer))
 }
 
 #[cfg(test)]
