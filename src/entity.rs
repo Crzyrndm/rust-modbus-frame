@@ -62,8 +62,8 @@ impl Entity {
     }
 
     /// location in 1-indexed address
-    pub fn location(&self) -> u16 {
-        self.address + 1
+    pub fn location(&self) -> u32 {
+        self.address as u32 + 1
     }
 
     /// 5 digit entity encoding, supports addresses in range \[0, 9998\]
@@ -106,6 +106,7 @@ Succeeds if entity string is valid
 
 ```rust
 use core::convert::TryFrom;
+use modbus_frames as modbus;
 use modbus::entity::{Entity, EntityType};
 assert_eq!(
     Entity::try_from("40001"),
@@ -222,5 +223,16 @@ mod test {
             Err(error::Error::InvalidEncoding),
             Entity::try_from("165537") // 1-65536 is the allowed range of locations
         );
+    }
+
+    #[test]
+    fn test_entity_location() {
+        let test_ent = Entity::try_from("40001").unwrap();
+        assert_eq!(test_ent.address(), 0);
+        assert_eq!(test_ent.location(), 1);
+
+        let test_ent = Entity::try_from("465536").unwrap();
+        assert_eq!(test_ent.address(), 65535u16);
+        assert_eq!(test_ent.location(), 65536);
     }
 }

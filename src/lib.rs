@@ -3,10 +3,11 @@ README examples duplicated here for testing. Better way?
 
 ## RTU frame from bytes example
 ```rust
+use modbus_frames as modbus;
 use std::convert::TryFrom;
 use modbus::rtu::frame;
 use modbus::device::Device;
-use modbus::standard::function;
+use modbus::function;
 
 // incoming bytes
 let bytes: &[u8] = &[0x11, 0x03, 0x00, 0x6B, 0x00, 0x03, 0x76, 0x87];
@@ -25,20 +26,21 @@ if let Ok(frame) = frame::Frame::try_from(bytes) {
 
 ## RTU frame builder example
 ```rust
+use modbus_frames as modbus;
 use modbus::rtu::frame;
 use modbus::device::Device;
-use modbus::standard::function;
+use modbus::function;
 
 // creating the above bytes using the frame builder
 let mut buffer = [0; 10];
 // frame builder uses typestates to ensure that the frame can only be built
 // in the correct order (address, function, data, crc)
-let frame: frame::Frame = frame::build_frame(&mut buffer)
+let frame: frame::Frame = frame::build(&mut buffer)
                                     .for_device(&Device::new(0x11))
                                     .function(function::READ_HOLDING_REGISTERS)
                                     .bytes(&[0x00, 0x6B])
                                     .register(0x03)
-                                    .to_frame();
+                                    .finalise();
 
 assert_eq!(frame.device(), Device::new(0x11));
 assert_eq!(frame.function(), function::READ_HOLDING_REGISTERS);
@@ -52,17 +54,19 @@ assert_eq!(frame.crc().to_le_bytes(), [0x76, 0x87]);
 
 // pub once exists
 mod ascii;
+pub mod builder;
 pub mod device;
 pub mod entity;
 pub mod error;
+pub mod exception;
+pub mod function;
 pub mod rtu;
-pub mod standard;
 
-pub type Result<T> = core::result::Result<T, error::Error>;
+type Result<T> = core::result::Result<T, error::Error>;
 
 /// function code specifies how a device processes the frame
 /// top bit is set to indicate an exception response so valid range is 0-127
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone)]
 pub struct Function(pub u8);
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]

@@ -4,11 +4,11 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn new(address: u8) -> Self {
+    pub const fn new(address: u8) -> Self {
         Device { adr: address }
     }
 
-    pub fn address(&self) -> u8 {
+    pub const fn address(&self) -> u8 {
         self.adr
     }
 }
