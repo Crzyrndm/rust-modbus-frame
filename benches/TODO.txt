@@ -1,0 +1,4 @@
+this lib does minimal heavy work (CRC would be the "worst") so I don't expect execution speed benchmarks to show much
+They get even less interesting when you realise that the large  waits in the modbus spec  make speed pretty much a non-issue
+
+What I do want to at some point is track memory usage. This lib is targeted at embedded applications so FLASH and stack usage are both of some importance
