@@ -1,6 +1,6 @@
 use core::convert::TryFrom;
 
-use modbus::rtu::{self, frame};
+use modbus::{builder, frame, view};
 use modbus_frames as modbus;
 
 const ADDRESS: u8 = 1;
@@ -36,7 +36,7 @@ fn receive_message<'a>(
     buffer: &'a mut [u8],
 ) -> (
     &'a mut [u8],
-    Result<modbus::rtu::frame::Frame<'a>, modbus::error::Error>,
+    Result<modbus::frame::Frame<'a>, modbus::error::Error>,
 ) {
     // receive a command for this device
     // function: read holding registers
@@ -64,7 +64,7 @@ fn handle_frame<'a, 'b>(
             let read_resp = handle_read_holding_register(state, frame, response_buffer);
             read_resp
         }
-        _ => frame::build(response_buffer)
+        _ => builder::build_frame(response_buffer)
             .for_device(&state.device)
             .exception(frame.function(), modbus::exception::ILLEGAL_FUNCTION),
     };
@@ -73,11 +73,11 @@ fn handle_frame<'a, 'b>(
 
 fn handle_read_holding_register<'a, 'f>(
     state: &DeviceState,
-    read_frame: rtu::frame::Frame<'f>,
+    read_frame: frame::Frame<'f>,
     response_buffer: &'a mut [u8],
 ) -> frame::Frame<'a> {
-    let response_builder = frame::build(response_buffer).for_device(&state.device);
-    let read_cmd = rtu::view::ReadRegisterCommand::try_from(read_frame);
+    let response_builder = builder::build_frame(response_buffer).for_device(&state.device);
+    let read_cmd = view::ReadRegisterCommand::try_from(read_frame);
     match read_cmd {
         Err(_) => {
             return response_builder.exception(

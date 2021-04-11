@@ -1,4 +1,4 @@
-use crate::{device, error, function, rtu::frame, Result};
+use crate::{builder, device, error, frame, function, Result};
 use core::convert::TryFrom;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -15,7 +15,7 @@ impl<'b> ReadRegisterCommand<'b> {
     ) -> ReadRegisterCommand<'b> {
         assert!(buffer.len() >= 8); // need at least 8 bytes to format the command into
 
-        let frame = frame::build(buffer)
+        let frame = builder::build_frame(buffer)
             .for_device(device)
             .function(function::READ_HOLDING_REGISTERS)
             .register(start_reg)

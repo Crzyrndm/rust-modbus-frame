@@ -1,7 +1,5 @@
 pub mod crc;
-pub mod encoding;
-pub mod frame;
+pub mod iterator;
 pub mod timing;
-pub mod view;
 
-pub use encoding::RTU;
+pub use iterator::AsBytesIter;
