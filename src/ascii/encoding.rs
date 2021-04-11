@@ -26,12 +26,12 @@ impl<'b> ASCII<'b> {
     fn write_hex(&mut self, byte: u8) {
         self.lrc_sum = self.lrc_sum.wrapping_add(byte);
         self.buffer[self.idx] = match (byte & 0xF0) >> 4 {
-            val @ (0..=9) => '0' as u8 + val,
-            other => 'A' as u8 + other - 10,
+            val @ (0..=9) => b'0' + val,
+            other => b'A' + other - 10,
         };
         self.buffer[self.idx + 1] = match byte & 0x0F {
-            val @ (0..=9) => '0' as u8 + val,
-            other => 'A' as u8 + other - 10,
+            val @ (0..=9) => b'0' + val,
+            other => b'A' + other - 10,
         };
         self.idx += 2;
     }
@@ -40,7 +40,7 @@ impl<'b> ASCII<'b> {
 impl<'b> Encoding<Frame<'b>> for ASCII<'b> {
     fn init(&mut self) {
         // ASCII start delimiter is ':' / 0x3A
-        self.buffer[0] = ':' as u8;
+        self.buffer[0] = b':';
         self.idx = 1;
         self.lrc_sum = 0;
     }
@@ -65,8 +65,8 @@ impl<'b> Encoding<Frame<'b>> for ASCII<'b> {
         let lrc = (!self.lrc_sum).wrapping_add(1);
         self.write_hex(lrc);
         // and the '\r\n'
-        self.buffer[self.idx] = '\r' as u8;
-        self.buffer[self.idx + 1] = '\n' as u8;
+        self.buffer[self.idx] = b'\r';
+        self.buffer[self.idx + 1] = b'\n';
         // return the frame
         let len = self.idx + 2;
         Frame::new(&self.buffer[..len])
@@ -92,8 +92,8 @@ mod tests {
         let mut ascii = ASCII::new(&mut buffer[..]);
         ascii.write_hex(0x7A);
 
-        assert_eq!(ascii.buffer[0], '7' as u8);
-        assert_eq!(ascii.buffer[1], 'A' as u8);
+        assert_eq!(ascii.buffer[0], b'7');
+        assert_eq!(ascii.buffer[1], b'A');
         assert_eq!(ascii.idx, 2);
     }
 

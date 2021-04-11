@@ -92,7 +92,7 @@ impl Entity {
 
 fn encode_decimal_to(mut val: u16, out: &mut [u8]) {
     for c in out.iter_mut().rev() {
-        *c = (val % 10) as u8 + '0' as u8;
+        *c = (val % 10) as u8 + b'0';
         val /= 10;
     }
     // assert that the length was enough to encode the value
@@ -135,13 +135,11 @@ impl TryFrom<&str> for Entity {
             // ASCII to number
             let mut address: u32 = 0; // must accumulate to u32 because max location is 65536 (u16::MAX + 1)
             for &b in &bytes[1..] {
-                const MIN: u8 = '0' as u8;
-                const MAX: u8 = '9' as u8;
-                if b < MIN || b > MAX {
+                if b < b'0' || b > b'9' {
                     return Err(Self::Error::InvalidEncoding);
                 }
                 address *= 10;
-                address += (b - MIN) as u32;
+                address += (b - b'0') as u32;
             }
             if address == 0 || address > 65536 {
                 // location cannot be 0
