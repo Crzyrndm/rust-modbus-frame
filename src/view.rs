@@ -39,20 +39,6 @@ impl<'b> ReadRegisterCommand<'b> {
     }
 }
 
-impl<'b> TryFrom<&'b [u8]> for ReadRegisterCommand<'b> {
-    type Error = error::Error;
-
-    fn try_from(value: &'b [u8]) -> Result<Self> {
-        if value.len() != 8 {
-            return Err(Self::Error::InvalidLength);
-        }
-        if value[1] != function::READ_HOLDING_REGISTERS.0 {
-            return Err(Self::Error::WrongFunction);
-        }
-        frame::Frame::try_from(value).map(|frame| ReadRegisterCommand { frame })
-    }
-}
-
 impl<'b> TryFrom<frame::Frame<'b>> for ReadRegisterCommand<'b> {
     type Error = error::Error;
 

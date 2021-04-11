@@ -1,6 +1,6 @@
 use core::convert::TryFrom;
 
-use modbus::{builder, frame, view};
+use modbus::{builder, frame, rtu, view};
 use modbus_frames as modbus;
 
 const ADDRESS: u8 = 1;
@@ -51,7 +51,7 @@ fn receive_message<'a>(
     // - that the last two bytes form a valid CRC for the message
     let (received, remainder) = buffer.split_at_mut(bytes_received.len());
     dbg!(&received);
-    (remainder, frame::Frame::try_from(received))
+    (remainder, rtu::decode(received))
 }
 
 fn handle_frame<'a, 'b>(

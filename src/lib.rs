@@ -4,8 +4,7 @@ README examples duplicated here for testing. Better way?
 ## RTU frame from bytes example
 ```rust
 use modbus_frames as modbus;
-use std::convert::TryFrom;
-use modbus::frame;
+use modbus::rtu;
 use modbus::device::Device;
 use modbus::function;
 
@@ -14,7 +13,7 @@ let bytes: &[u8] = &[0x11, 0x03, 0x00, 0x6B, 0x00, 0x03, 0x76, 0x87];
 // try_from checks that the length is within modbus allowances (4 <= len <= 255)
 // and that the crc is valid.
 // frame::Frame is a borrow of the slice providing named accesor functions  for the bytes within
-if let Ok(frame) = frame::Frame::try_from(bytes) {
+if let Ok(frame) = rtu::decode(bytes) {
     assert_eq!(frame.device(), Device::new(0x11));
     assert_eq!(frame.function(), function::READ_HOLDING_REGISTERS);
     assert_eq!(frame.payload(), [0x00, 0x6B, 0x00, 0x03]);
