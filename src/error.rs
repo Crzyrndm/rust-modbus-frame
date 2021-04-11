@@ -3,7 +3,7 @@
 pub enum Error {
     None,
     InvalidLength,
-    InvalidCrC,
+    InvalidCorrupt,
     InvalidEncoding,
     OtherAddress,
     WrongFunction,
