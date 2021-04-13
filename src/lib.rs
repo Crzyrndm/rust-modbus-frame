@@ -60,6 +60,8 @@ pub mod error;
 pub mod exception;
 pub mod frame;
 pub mod function;
+mod request;
+mod response;
 pub mod rtu;
 pub mod view;
 
