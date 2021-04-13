@@ -5,24 +5,22 @@ use crate::{
     Function,
 };
 
-/// Frame provides functions to view a series of bytes as a modbus data frame
+/// Frame provides functions to view a series of bytes in RTU format as a modbus data frame
 #[derive(PartialEq, Debug, Clone)]
 pub struct Frame<'b> {
     data: &'b [u8],
 }
 
 impl<'b> Frame<'b> {
-    /// Assumes validation occurs prior to call as no guarantees are checked here
-    /// in particular, this will lead to panics if bytes.len() is less than 2
-    /// requirements for this to be safe
-    /// - buffer size is >= 2
+    /// panics if bytes.len() < 2
     ///
-    /// The safe alternative depend on data source.
-    /// - &[u8] -> use Frame::try_from, invalid length or CRC will result in an error
+    /// This should be used internally to constructs that enforce that the input generates the expected frame
+    /// - from &[u8] -> use Frame::try_from, invalid length or CRC will result in an error
     /// - frame::build_frame will construct a valid frame from various components in a reasonably ergonomix form
-    ///
-    /// new_unchecked is primarily intended for use in implementing (Try)From and the like
-    pub unsafe fn new_unchecked(bytes: &'b [u8]) -> Self {
+    /// - method is public to allow for potential extensions
+    pub fn new(bytes: &'b [u8]) -> Self {
+        // smallest valid modbus data is just address/function. Anything smaller is invalid
+        assert!(bytes.len() >= 2);
         Frame { data: bytes }
     }
 
@@ -58,17 +56,12 @@ impl<'b> Frame<'b> {
 #[cfg(test)]
 mod tests {
     use super::Frame;
-    use crate::{
-        device::Device,
-        function,
-        rtu::{self},
-        Function,
-    };
+    use crate::{device::Device, function, rtu, Function};
 
     #[test]
     fn test_frame_views() {
         let test_data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let frame = unsafe { Frame::new_unchecked(&test_data[..]) };
+        let frame = Frame::new(&test_data[..]);
 
         assert_eq!(frame.device(), Device::new(0));
         assert_eq!(frame.function(), Function(1));

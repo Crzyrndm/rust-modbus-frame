@@ -116,7 +116,7 @@ impl<'b> Builder<'b, AddData> {
     }
 
     pub fn finalise(self) -> Frame<'b> {
-        unsafe { Frame::new_unchecked(&self.buffer[..self.idx]) }
+        Frame::new(&self.buffer[..self.idx])
     }
 }
 

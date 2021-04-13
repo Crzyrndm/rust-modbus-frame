@@ -67,8 +67,8 @@ type Result<T> = core::result::Result<T, error::Error>;
 
 /// function code specifies how a device processes the frame
 /// top bit is set to indicate an exception response so valid range is 0-127
-#[derive(Debug, PartialEq, Eq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Function(pub u8);
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Exception(pub u8);

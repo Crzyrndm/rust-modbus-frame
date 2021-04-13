@@ -39,7 +39,7 @@ pub fn decode(bytes: &mut [u8]) -> (Result<Frame>, &mut [u8]) {
         return (Err(error::Error::InvalidCorrupt), bytes);
     }
     let slices = bytes.split_at_mut(end_idx - 1);
-    (Ok(unsafe { Frame::new_unchecked(slices.0) }), slices.1)
+    (Ok(Frame::new(slices.0)), slices.1)
 }
 
 #[cfg(test)]

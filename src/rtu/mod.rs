@@ -30,7 +30,7 @@ pub fn decode(bytes: &[u8]) -> Result<Frame> {
         error::Error::None => {
             // crc bytes aren't part of the frame
             let data = &bytes[..(bytes.len() - 2)];
-            Ok(unsafe { Frame::new_unchecked(data) })
+            Ok(Frame::new(data))
         }
         other => Err(other),
     }
