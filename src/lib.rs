@@ -60,9 +60,10 @@ pub mod error;
 pub mod exception;
 pub mod frame;
 pub mod function;
+pub mod iter;
+pub mod modbus_traits;
 pub mod rtu;
 pub mod transaction;
-pub mod view;
 
 type Result<T> = core::result::Result<T, error::Error>;
 
