@@ -8,7 +8,7 @@ pub const ILLEGAL_ADDRESS: Exception = Exception(2); //
 /// Value is not accepted by slave
 pub const ILLEGAL_DATA: Exception = Exception(3);
 /// Unrecoverable error occurred while slave was attempting to perform requested action
-pub const DEBICE_FAILURE: Exception = Exception(4);
+pub const DEVICE_FAILURE: Exception = Exception(4);
 /// Slave has accepted request and is processing it, but a long duration of time is required.
 /// This response is returned to prevent a timeout error from occurring in the master.
 /// Master can next issue a Poll Program Complete message to determine whether processing is completed
