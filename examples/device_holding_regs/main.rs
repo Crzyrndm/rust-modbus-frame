@@ -1,4 +1,4 @@
-use modbus::{builder, exception, frame, rtu};
+use modbus::{builder, frame, rtu};
 use modbus_frames as modbus;
 
 const ADDRESS: u8 = 1;
