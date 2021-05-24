@@ -14,5 +14,5 @@ pub mod report_id;
 pub mod write_coil;
 pub mod write_file_record;
 pub mod write_multiple_coils;
-pub mod write_multiple_registers;
+pub mod write_multiple_holding_registers;
 pub mod write_register;
