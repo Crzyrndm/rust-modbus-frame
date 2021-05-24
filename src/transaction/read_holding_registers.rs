@@ -2,7 +2,15 @@
 
 use core::convert::TryInto;
 
-use crate::{exception, frame, iter::registers::Registers, Exception};
+use crate::{
+    builder::{self, AddData, Builder},
+    device::Device,
+    exception,
+    frame::{self, Frame},
+    function,
+    iter::registers::Registers,
+    Exception,
+};
 
 pub const FUNCTION: crate::Function = crate::function::READ_HOLDING_REGISTERS;
 
@@ -43,6 +51,35 @@ impl<'b> Request<'b> {
 
     pub fn register_count(&self) -> u16 {
         u16::from_be_bytes(self.payload[2..4].try_into().unwrap())
+    }
+
+    pub fn build_response_from_regs(
+        &self,
+        write_to: &'b mut [u8],
+        device: &Device,
+        registers: &[u16],
+    ) -> Frame<'b> {
+        self.build_response_with(write_to, device, |builder| builder.registers(registers))
+    }
+
+    fn build_response_with<F>(
+        &self,
+        write_to: &'b mut [u8],
+        device: &Device,
+        fill_regs: F,
+    ) -> Frame<'b>
+    where
+        F: FnOnce(Builder<AddData>) -> Builder<AddData>,
+    {
+        let data_len_bytes = 2 * self.register_count() as u8;
+        assert!(write_to.len() >= 3 + data_len_bytes as usize); // TODO should this be a result?
+        let mut builder = builder::build_frame(write_to)
+            .for_device(device)
+            .function(function::READ_HOLDING_REGISTERS)
+            .byte(data_len_bytes);
+        builder = fill_regs(builder);
+        assert_eq!(builder.bytes_consumed(), 3 + data_len_bytes as usize);
+        builder.finalise()
     }
 }
 
@@ -162,5 +199,39 @@ mod tests {
         let payload = [0x00, FUNCTION.0, 4, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
         assert_eq!(Response::parse_from(&frame), Err(None));
+    }
+
+    #[test]
+    fn test_request_build_response() {
+        let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 0x0A];
+        let frame = Frame::new(&payload[..]);
+        let req = Request::parse_from(&frame).unwrap();
+
+        let mut response_buffer = [0; 30];
+        let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let response = req.build_response_from_regs(&mut response_buffer, &frame.device(), &regs);
+        assert_eq!(
+            &[0, 3, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0, 205][..],
+            response.rtu_bytes().collect::<Vec<_>>()
+        );
+
+        let mut response_buffer = [0; 30];
+        let response = req.build_response_with(&mut response_buffer, &frame.device(), |builder| {
+            builder
+                .register(0)
+                .register(1)
+                .register(2)
+                .register(3)
+                .register(4)
+                .register(5)
+                .register(6)
+                .register(7)
+                .register(8)
+                .register(9)
+        });
+        assert_eq!(
+            &[0, 3, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0, 205][..],
+            response.rtu_bytes().collect::<Vec<_>>()
+        );
     }
 }
