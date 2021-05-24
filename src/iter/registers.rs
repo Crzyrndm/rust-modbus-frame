@@ -15,14 +15,9 @@ impl<'a> Iterator for Registers<'a> {
     type Item = u16;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let high = self.payload_iter.next();
-        if let Some(&high) = high {
-            let low = self.payload_iter.next();
-            if let Some(&low) = low {
-                return Some(((high as u16) << 8) | low as u16);
-            }
-        }
-        None
+        let high = *self.payload_iter.next()?;
+        let low = *self.payload_iter.next()?;
+        return Some(((high as u16) << 8) | low as u16);
     }
 }
 
