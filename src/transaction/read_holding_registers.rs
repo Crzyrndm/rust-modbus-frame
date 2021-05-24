@@ -75,7 +75,7 @@ impl<'b> Request<'b> {
         assert!(write_to.len() >= 3 + data_len_bytes as usize); // TODO should this be a result?
         let mut builder = builder::build_frame(write_to)
             .for_device(device)
-            .function(function::READ_HOLDING_REGISTERS)
+            .function(FUNCTION)
             .byte(data_len_bytes);
         builder = fill_regs(builder);
         assert_eq!(builder.bytes_consumed(), 3 + data_len_bytes as usize);
