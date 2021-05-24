@@ -62,7 +62,7 @@ impl<'b> Request<'b> {
         self.build_response_with(write_to, device, |builder| builder.registers(registers))
     }
 
-    fn build_response_with<F>(
+    pub fn build_response_with<F>(
         &self,
         write_to: &'b mut [u8],
         device: &Device,
