@@ -35,7 +35,7 @@ let mut buffer = [0; 10];
 // frame builder uses typestates to ensure that the frame can only be built
 // in the correct order (address, function, data, crc)
 let frame = builder::build_frame(&mut buffer)
-                    .for_device(&Device::new(0x11))
+                    .for_device(Device::new(0x11))
                     .function(function::READ_HOLDING_REGISTERS)
                     .bytes(&[0x00, 0x6B])
                     .register(0x03)

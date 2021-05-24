@@ -65,7 +65,7 @@ fn handle_frame<'a, 'b>(
         }
         _ => Some(
             builder::build_frame(response_buffer)
-                .for_device(&state.device)
+                .for_device(state.device)
                 .exception(frame.function(), modbus::exception::ILLEGAL_FUNCTION),
         ),
     };
@@ -77,7 +77,7 @@ fn handle_read_holding_register<'a, 'f>(
     read_frame: frame::Frame<'f>,
     response_buffer: &'a mut [u8],
 ) -> Option<frame::Frame<'a>> {
-    let response_builder = builder::build_frame(response_buffer).for_device(&state.device);
+    let response_builder = builder::build_frame(response_buffer).for_device(state.device);
     let holding_regs_req =
         modbus::transaction::read_holding_registers::Request::parse_from(&read_frame);
     if let Err(exception) = holding_regs_req {

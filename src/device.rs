@@ -1,4 +1,4 @@
-#[derive(PartialEq, PartialOrd, Debug, Clone)]
+#[derive(PartialEq, PartialOrd, Debug, Clone, Copy)]
 pub struct Device {
     adr: u8,
 }

@@ -59,7 +59,7 @@ impl<'b> Request<'b> {
         Registers::create(&self.payload[5..])
     }
 
-    pub fn build_response(&self, write_to: &'b mut [u8], device: &Device) -> frame::Frame<'b> {
+    pub fn build_response(&self, write_to: &'b mut [u8], device: Device) -> frame::Frame<'b> {
         assert!(write_to.len() >= 6); // TODO should this be a result?
         builder::build_frame(write_to)
             .for_device(device)

@@ -27,7 +27,7 @@ pub struct AddData;
 ///
 /// let mut buff = [0u8; 20];
 /// let frame = builder::build_frame(&mut buff)
-///                 .for_device(&Device::new(1))
+///                 .for_device(Device::new(1))
 ///                 .function(Function(2))
 ///                 .register(3)
 ///                 .finalise();
@@ -57,7 +57,7 @@ impl<'b, STATE> Builder<'b, STATE> {
 }
 
 impl<'b> Builder<'b, Initial> {
-    pub fn for_device(self, device: &Device) -> Builder<'b, AddFunction> {
+    pub fn for_device(self, device: Device) -> Builder<'b, AddFunction> {
         self.buffer[self.idx] = device.address();
         Builder {
             buffer: self.buffer,
@@ -133,7 +133,7 @@ mod tests {
         assert_eq!(0, frame.bytes_consumed());
         assert_eq!(20, frame.bytes_remaining());
         // function state
-        let frame = frame.for_device(&Device::new(123));
+        let frame = frame.for_device(Device::new(123));
         assert_eq!(1, frame.bytes_consumed());
         assert_eq!(19, frame.bytes_remaining());
         // data state

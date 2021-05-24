@@ -56,7 +56,7 @@ impl<'b> Request<'b> {
     pub fn build_response_from_regs(
         &self,
         write_to: &'b mut [u8],
-        device: &Device,
+        device: Device,
         registers: &[u16],
     ) -> Frame<'b> {
         self.build_response_with(write_to, device, |builder| builder.registers(registers))
@@ -65,7 +65,7 @@ impl<'b> Request<'b> {
     pub fn build_response_with<F>(
         &self,
         write_to: &'b mut [u8],
-        device: &Device,
+        device: Device,
         fill_regs: F,
     ) -> Frame<'b>
     where
@@ -209,14 +209,14 @@ mod tests {
 
         let mut response_buffer = [0; 30];
         let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let response = req.build_response_from_regs(&mut response_buffer, &frame.device(), &regs);
+        let response = req.build_response_from_regs(&mut response_buffer, frame.device(), &regs);
         assert_eq!(
             &[0, 3, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0, 205][..],
             response.rtu_bytes().collect::<Vec<_>>()
         );
 
         let mut response_buffer = [0; 30];
-        let response = req.build_response_with(&mut response_buffer, &frame.device(), |builder| {
+        let response = req.build_response_with(&mut response_buffer, frame.device(), |builder| {
             builder
                 .register(0)
                 .register(1)

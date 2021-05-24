@@ -86,7 +86,7 @@ mod tests {
     fn test_ascii_as_bytes() {
         let mut buffer = [0; 20];
         let frame = builder::build_frame(&mut buffer)
-            .for_device(&Device::new(0xF7))
+            .for_device(Device::new(0xF7))
             .function(function::READ_HOLDING_REGISTERS)
             .bytes(&[19, 137, 0, 10])
             .finalise();
