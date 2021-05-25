@@ -18,10 +18,10 @@ pub struct Request<'b> {
 }
 
 impl<'b> Request<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Option<Exception>> {
+    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Exception> {
         // read registers request always has a 4 byte payload (address + length)
         if frame.function() != FUNCTION {
-            Err(Some(exception::ILLEGAL_FUNCTION)) // potentially should be panic'ing here?
+            Err(exception::ILLEGAL_FUNCTION) // potentially should be panic'ing here?
         } else if frame.payload().len() >= 5 {
             let req = Request {
                 payload: frame.payload(),
@@ -36,10 +36,10 @@ impl<'b> Request<'b> {
             {
                 Ok(req)
             } else {
-                Err(Some(exception::ILLEGAL_DATA))
+                Err(exception::ILLEGAL_DATA)
             }
         } else {
-            Err(None)
+            Err(exception::ILLEGAL_DATA)
         }
     }
 
@@ -80,13 +80,13 @@ pub struct Response<'b> {
 }
 
 impl<'b> Response<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Option<Exception>> {
+    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Exception> {
         // if function code doesn't match (7 bit, ignoring the exception bit)
         if frame.function().0 & 0x7F != FUNCTION.0 {
-            Err(Some(exception::ILLEGAL_FUNCTION)) // panic?
+            Err(exception::ILLEGAL_FUNCTION) // panic?
         } else if (frame.function().0 & 0x80) == 0x80 && !frame.payload().is_empty() {
             let exception_code = frame.payload()[0];
-            Err(Some(Exception(exception_code)))
+            Err(Exception(exception_code))
         } else {
             let valid = frame.payload().len() == 4; // atleast 1 register in response
             if valid {
@@ -94,8 +94,7 @@ impl<'b> Response<'b> {
                     payload: frame.payload(),
                 })
             } else {
-                // TODO: is this the correct response to use for "invalid format"? Provably not
-                Err(None)
+                Err(exception::ILLEGAL_DATA)
             }
         }
     }

@@ -24,10 +24,10 @@ pub struct Request<'b> {
 }
 
 impl<'b> Request<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Option<Exception>> {
+    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Exception> {
         // read registers request always has a 4 byte payload (address + length)
         if frame.function() != FUNCTION {
-            Err(Some(exception::ILLEGAL_FUNCTION)) // potentially should be panic'ing here?
+            Err(exception::ILLEGAL_FUNCTION)
         } else if frame.payload().len() == 4 {
             let req = Request {
                 payload: frame.payload(),
@@ -38,10 +38,10 @@ impl<'b> Request<'b> {
             if req.register_count() <= MAX_READ_COUNT {
                 Ok(req)
             } else {
-                Err(Some(exception::ILLEGAL_DATA))
+                Err(exception::ILLEGAL_DATA)
             }
         } else {
-            Err(None)
+            Err(exception::ILLEGAL_DATA)
         }
     }
 
@@ -93,13 +93,12 @@ pub struct Response<'b> {
 }
 
 impl<'b> Response<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Option<Exception>> {
+    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Exception> {
         if frame.function().0 & 0x7F != FUNCTION.0 {
-            // TODO: not quite what I want to respond with as this overlaps with the device sending this exception back
-            Err(Some(exception::ILLEGAL_FUNCTION))
+            Err(exception::ILLEGAL_FUNCTION)
         } else if (frame.function().0 & 0x80) == 0x80 && !frame.payload().is_empty() {
             let exception_code = frame.payload()[0];
-            Err(Some(Exception(exception_code)))
+            Err(Exception(exception_code))
         } else {
             let valid = frame.payload().len() >= 3 // atleast 1 register in response
                         && frame.payload().len() == (frame.payload()[0] as usize + 1); // length byte == actual length
@@ -108,8 +107,7 @@ impl<'b> Response<'b> {
                     payload: frame.payload(),
                 })
             } else {
-                // TODO: is this the correct response to use for "invalid format"? Provably not
-                Err(None)
+                Err(exception::ILLEGAL_DATA)
             }
         }
     }
@@ -147,25 +145,25 @@ mod tests {
         let frame = Frame::new(&payload[..]);
         assert_eq!(
             Request::parse_from(&frame),
-            Err(Some(crate::exception::ILLEGAL_DATA))
+            Err(crate::exception::ILLEGAL_DATA)
         );
 
         // payload too short
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Request::parse_from(&frame), Err(None));
+        assert_eq!(Request::parse_from(&frame), Err(exception::ILLEGAL_DATA));
 
         // payload too long
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Request::parse_from(&frame), Err(None));
+        assert_eq!(Request::parse_from(&frame), Err(exception::ILLEGAL_DATA));
 
         // wrong function
         let payload = [0x00, FUNCTION.0 + 1, 0x45, 0x59, 0x00, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
         assert_eq!(
             Request::parse_from(&frame),
-            Err(Some(exception::ILLEGAL_FUNCTION))
+            Err(exception::ILLEGAL_FUNCTION)
         );
     }
 
@@ -184,21 +182,18 @@ mod tests {
         let frame = Frame::new(&payload[..]);
         assert_eq!(
             Response::parse_from(&frame),
-            Err(Some(exception::ILLEGAL_FUNCTION))
+            Err(exception::ILLEGAL_FUNCTION)
         );
 
         // exception reqponse
         let payload = [0x00, 0x80 | FUNCTION.0, exception::DEVICE_FAILURE.0];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(
-            Response::parse_from(&frame),
-            Err(Some(exception::DEVICE_FAILURE))
-        );
+        assert_eq!(Response::parse_from(&frame), Err(exception::DEVICE_FAILURE));
 
         // length mismatch
         let payload = [0x00, FUNCTION.0, 4, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Response::parse_from(&frame), Err(None));
+        assert_eq!(Response::parse_from(&frame), Err(exception::ILLEGAL_DATA));
     }
 
     #[test]

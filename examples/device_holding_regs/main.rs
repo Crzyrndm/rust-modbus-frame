@@ -25,9 +25,8 @@ fn main() {
         if frame.device() == state.device {
             // only respond if frame is for this device
             let response = handle_frame(&mut state, frame, remainder);
-            if let Some(response) = response {
-                send_message(&response);
-            }
+
+            send_message(&response);
         }
     };
 }
@@ -58,16 +57,14 @@ fn handle_frame<'a, 'b>(
     state: &mut DeviceState,
     frame: frame::Frame<'a>,
     response_buffer: &'b mut [u8],
-) -> Option<frame::Frame<'b>> {
+) -> frame::Frame<'b> {
     let response = match frame.function() {
         modbus::function::READ_HOLDING_REGISTERS => {
             handle_read_holding_register(state, frame, response_buffer)
         }
-        _ => Some(
-            builder::build_frame(response_buffer)
-                .for_device(state.device)
-                .exception(frame.function(), modbus::exception::ILLEGAL_FUNCTION),
-        ),
+        _ => builder::build_frame(response_buffer)
+            .for_device(state.device)
+            .exception(frame.function(), modbus::exception::ILLEGAL_FUNCTION),
     };
     response
 }
@@ -76,13 +73,12 @@ fn handle_read_holding_register<'a, 'f>(
     state: &DeviceState,
     read_frame: frame::Frame<'f>,
     response_buffer: &'a mut [u8],
-) -> Option<frame::Frame<'a>> {
+) -> frame::Frame<'a> {
     let response_builder = builder::build_frame(response_buffer).for_device(state.device);
     let holding_regs_req =
         modbus::transaction::read_holding_registers::Request::parse_from(&read_frame);
     if let Err(exception) = holding_regs_req {
-        return exception
-            .map(|ex| response_builder.exception(modbus::function::READ_HOLDING_REGISTERS, ex));
+        return response_builder.exception(modbus::function::READ_HOLDING_REGISTERS, exception);
     }
     let request = holding_regs_req.unwrap();
 
@@ -103,7 +99,7 @@ fn handle_read_holding_register<'a, 'f>(
             .registers(&state.holding_regs[start..end])
             .finalise(),
     };
-    Some(x)
+    x
 }
 
 fn send_message<'a>(frame: &frame::Frame<'a>) {
