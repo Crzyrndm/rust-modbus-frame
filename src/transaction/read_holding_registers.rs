@@ -206,7 +206,10 @@ mod tests {
         let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         let response = req.build_response_from_regs(&mut response_buffer, frame.device(), &regs);
         assert_eq!(
-            &[0, 3, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0, 205][..],
+            &[
+                0, FUNCTION.0, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0,
+                205
+            ][..],
             response.rtu_bytes().collect::<Vec<_>>()
         );
 
@@ -225,7 +228,10 @@ mod tests {
                 .register(9)
         });
         assert_eq!(
-            &[0, 3, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0, 205][..],
+            &[
+                0, FUNCTION.0, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0,
+                205
+            ][..],
             response.rtu_bytes().collect::<Vec<_>>()
         );
     }
