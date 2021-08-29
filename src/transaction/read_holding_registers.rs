@@ -53,6 +53,11 @@ impl<'b> Request<'b> {
         u16::from_be_bytes(self.payload[2..4].try_into().unwrap())
     }
 
+    pub fn register_range(&self) -> core::ops::Range<u16> {
+        let last_reg_address = self.address() + self.register_count();
+        self.address()..last_reg_address
+    }
+
     pub fn build_response_from_regs(
         &self,
         write_to: &'b mut [u8],
