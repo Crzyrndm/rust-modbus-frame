@@ -76,13 +76,13 @@ fn handle_read_holding_register<'a, 'f>(
 ) -> frame::Frame<'a> {
     let response_builder = builder::build_frame(response_buffer).for_device(state.device);
     let holding_regs_req =
-        modbus::transaction::read_holding_registers::Request::parse_from(&read_frame);
+        modbus::transaction::read_holding_registers::Request::parse_from(read_frame);
     if let Err(exception) = holding_regs_req {
         return response_builder.exception(modbus::function::READ_HOLDING_REGISTERS, exception);
     }
     let request = holding_regs_req.unwrap();
 
-    let start = request.address() as usize;
+    let start = request.first_register() as usize;
     let end = start + request.register_count() as usize;
     let exception = if start > state.holding_regs.len() {
         Some(modbus::exception::ILLEGAL_ADDRESS)

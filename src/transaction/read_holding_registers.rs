@@ -7,9 +7,8 @@ use crate::{
     device::Device,
     exception,
     frame::{self, Frame},
-    function,
     iter::registers::Registers,
-    Exception,
+    Exception, Function,
 };
 
 pub const FUNCTION: crate::Function = crate::function::READ_HOLDING_REGISTERS;
@@ -20,18 +19,16 @@ pub const FUNCTION: crate::Function = crate::function::READ_HOLDING_REGISTERS;
 */
 #[derive(Debug, PartialEq)]
 pub struct Request<'b> {
-    payload: &'b [u8],
+    frame: Frame<'b>,
 }
 
 impl<'b> Request<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Exception> {
+    pub fn parse_from(frame: frame::Frame<'b>) -> Result<Request<'b>, Exception> {
         // read registers request always has a 4 byte payload (address + length)
         if frame.function() != FUNCTION {
             Err(exception::ILLEGAL_FUNCTION)
         } else if frame.payload().len() == 4 {
-            let req = Request {
-                payload: frame.payload(),
-            };
+            let req = Request { frame };
             // max payload size is 256, less 4 for frame, less 1 for length = 251
             // split into 2-byte segments = 125
             const MAX_READ_COUNT: u16 = 125;
@@ -45,17 +42,29 @@ impl<'b> Request<'b> {
         }
     }
 
-    pub fn address(&self) -> u16 {
-        u16::from_be_bytes(self.payload[..2].try_into().unwrap())
+    pub fn device(&self) -> Device {
+        self.frame.device()
+    }
+
+    pub fn function(&self) -> Function {
+        self.frame.function()
+    }
+
+    pub fn first_register(&self) -> u16 {
+        let mut address_bytes = [0u8; 2];
+        address_bytes.copy_from_slice(&self.frame.payload()[..2]);
+        u16::from_be_bytes(address_bytes)
     }
 
     pub fn register_count(&self) -> u16 {
-        u16::from_be_bytes(self.payload[2..4].try_into().unwrap())
+        let mut address_bytes = [0u8; 2];
+        address_bytes.copy_from_slice(&self.frame.payload()[2..4]);
+        u16::from_be_bytes(address_bytes)
     }
 
     pub fn register_range(&self) -> core::ops::Range<u16> {
-        let last_reg_address = self.address() + self.register_count();
-        self.address()..last_reg_address
+        let last_reg_address = self.first_register() + self.register_count();
+        self.first_register()..last_reg_address
     }
 
     pub fn build_response_from_regs(
@@ -141,35 +150,32 @@ mod tests {
     fn test_request_impl() {
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 0x31];
         let frame = Frame::new(&payload[..]);
-        let req = Request::parse_from(&frame).unwrap();
-        assert_eq!(req.address(), 0x4559);
+        let req = Request::parse_from(frame).unwrap();
+        assert_eq!(req.first_register(), 0x4559);
         assert_eq!(req.register_count(), 0x0031);
 
         // request count too high
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 126];
         let frame = Frame::new(&payload[..]);
         assert_eq!(
-            Request::parse_from(&frame),
+            Request::parse_from(frame),
             Err(crate::exception::ILLEGAL_DATA)
         );
 
         // payload too short
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Request::parse_from(&frame), Err(exception::ILLEGAL_DATA));
+        assert_eq!(Request::parse_from(frame), Err(exception::ILLEGAL_DATA));
 
         // payload too long
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Request::parse_from(&frame), Err(exception::ILLEGAL_DATA));
+        assert_eq!(Request::parse_from(frame), Err(exception::ILLEGAL_DATA));
 
         // wrong function
         let payload = [0x00, FUNCTION.0 + 1, 0x45, 0x59, 0x00, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(
-            Request::parse_from(&frame),
-            Err(exception::ILLEGAL_FUNCTION)
-        );
+        assert_eq!(Request::parse_from(frame), Err(exception::ILLEGAL_FUNCTION));
     }
 
     #[test]
@@ -205,7 +211,7 @@ mod tests {
     fn test_request_build_response() {
         let payload = [0x00, FUNCTION.0, 0x45, 0x59, 0x00, 0x0A];
         let frame = Frame::new(&payload[..]);
-        let req = Request::parse_from(&frame).unwrap();
+        let req = Request::parse_from(frame.clone()).unwrap();
 
         let mut response_buffer = [0; 30];
         let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
