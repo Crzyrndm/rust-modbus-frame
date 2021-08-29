@@ -2,7 +2,14 @@
 
 use core::convert::TryInto;
 
-use crate::{builder, device::Device, exception, frame, iter::registers::Registers, Exception};
+use crate::{
+    builder,
+    device::Device,
+    exception,
+    frame::{self, Frame},
+    iter::registers::Registers,
+    Exception, Function,
+};
 
 pub const FUNCTION: crate::Function = crate::function::WRITE_HOLDING_REGISTER;
 
@@ -11,49 +18,54 @@ pub const FUNCTION: crate::Function = crate::function::WRITE_HOLDING_REGISTER;
 - register value (u16)
 */
 #[derive(Debug, PartialEq)]
-pub struct Request<'b> {
-    payload: &'b [u8],
+pub struct Request<'a> {
+    frame: Frame<'a>,
 }
 
-impl<'b> Request<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Request<'b>, Exception> {
+impl Request<'_> {
+    pub fn parse_from(frame: frame::Frame<'_>) -> Result<Request<'_>, Exception> {
         // read registers request always has a 4 byte payload (address + length)
         if frame.function() != FUNCTION {
             Err(exception::ILLEGAL_FUNCTION) // potentially should be panic'ing here?
         } else if frame.payload().len() == 4 {
-            Ok(Request {
-                payload: frame.payload(),
-            })
+            Ok(Request { frame })
         } else {
             Err(exception::ILLEGAL_DATA)
         }
     }
 
-    pub fn address(&self) -> u16 {
-        u16::from_be_bytes(self.payload[..2].try_into().unwrap())
+    pub fn device(&self) -> Device {
+        self.frame.device()
     }
 
-    pub fn value(&self) -> u16 {
-        u16::from_be_bytes(self.payload[2..4].try_into().unwrap())
+    pub fn function(&self) -> Function {
+        self.frame.function()
+    }
+
+    pub fn register_location(&self) -> u16 {
+        let mut address_bytes = [0u8; 2];
+        address_bytes.copy_from_slice(&self.frame.payload()[..2]);
+        u16::from_be_bytes(address_bytes)
+    }
+
+    pub fn register_value(&self) -> u16 {
+        let mut address_bytes = [0u8; 2];
+        address_bytes.copy_from_slice(&self.frame.payload()[2..4]);
+        u16::from_be_bytes(address_bytes)
     }
 
     /// fn here for compatibility with write_multiple
-    pub fn data_byte_count(&self) -> u8 {
-        2
+    pub fn registers(&self) -> Registers<'_> {
+        Registers::create(&self.frame.payload()[2..])
     }
 
-    /// fn here for compatibility with write_multiple
-    pub fn registers(&self) -> Registers<'b> {
-        Registers::create(&self.payload[2..])
-    }
-
-    pub fn build_response(&self, write_to: &'b mut [u8], device: Device) -> frame::Frame<'b> {
+    pub fn build_response<'a>(&self, write_to: &'a mut [u8], device: Device) -> frame::Frame<'a> {
         assert!(write_to.len() >= 6); // TODO should this be a result?
         builder::build_frame(write_to)
             .for_device(device)
             .function(FUNCTION)
-            .register(self.address())
-            .register(self.value())
+            .register(self.register_location())
+            .register(self.register_value())
             .finalise()
     }
 }
@@ -69,15 +81,15 @@ pub struct Response<'b> {
 }
 
 impl<'b> Response<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Exception> {
+    pub fn parse_from(frame: frame::Frame<'b>) -> Result<Response<'b>, Exception> {
         Request::parse_from(frame).map(|req| Response { req })
     }
 
     pub fn address(&self) -> u16 {
-        self.req.address()
+        self.req.register_location()
     }
 
     pub fn value(&self) -> u16 {
-        self.req.value()
+        self.req.register_value()
     }
 }
