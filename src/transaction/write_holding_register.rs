@@ -1,7 +1,5 @@
 //! 0x06
 
-use core::convert::TryInto;
-
 use crate::{
     builder,
     device::Device,
