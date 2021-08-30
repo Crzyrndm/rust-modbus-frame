@@ -88,7 +88,7 @@ mod tests {
         let frame = builder::build_frame(&mut buffer)
             .for_device(Device::new(0xF7))
             .function(function::READ_HOLDING_REGISTERS)
-            .bytes(&[19, 137, 0, 10])
+            .bytes([19, 137, 0, 10].iter().copied())
             .finalise();
 
         let iter = AsBytesIter::new(frame);

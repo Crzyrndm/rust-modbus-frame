@@ -86,33 +86,34 @@ impl<'b> Builder<'b, AddFunction> {
 
 impl<'b> Builder<'b, AddData> {
     /// bytes copied directly into the frame data as is
-    pub fn bytes(mut self, b: &[u8]) -> Builder<'b, AddData> {
-        b.iter()
-            .enumerate()
-            .for_each(|(i, b)| self.buffer[i + self.idx] = *b);
-        self.idx += b.len();
+    pub fn bytes<I: Iterator<Item = u8>>(mut self, iter: I) -> Builder<'b, AddData> {
+        for byte in iter {
+            self.buffer[self.idx] = byte;
+            self.idx += 1;
+        }
         self
     }
 
     /// copied directly into the frame data as is
     pub fn byte(self, b: u8) -> Builder<'b, AddData> {
-        self.bytes(&[b])
+        self.bytes([b].iter().copied())
     }
 
     /// registers copied into the frame data as big endian bytes
-    pub fn registers(mut self, r: &[u16]) -> Builder<'b, AddData> {
-        r.iter().enumerate().for_each(|(i, r)| {
-            let bytes = r.to_be_bytes();
-            self.buffer[self.idx + 2 * i] = bytes[0];
-            self.buffer[self.idx + 2 * i + 1] = bytes[1];
-        });
-        self.idx += 2 * r.len();
+    pub fn registers<I: Iterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
+        for register in iter {
+            let bytes = register.to_be_bytes();
+            self.buffer[self.idx] = bytes[0];
+            self.buffer[self.idx + 1] = bytes[1];
+
+            self.idx += 2;
+        }
         self
     }
 
     /// register copied into the frame data as big endian bytes
     pub fn register(self, r: u16) -> Builder<'b, AddData> {
-        self.registers(&[r])
+        self.registers([r].iter().copied())
     }
 
     pub fn finalise(self) -> Frame<'b> {
@@ -141,7 +142,11 @@ mod tests {
         assert_eq!(2, frame.bytes_consumed());
         assert_eq!(18, frame.bytes_remaining());
 
-        let frame = frame.byte(1).register(4).bytes(&[2, 3]).registers(&[5, 6]);
+        let frame = frame
+            .byte(1)
+            .register(4)
+            .bytes([2, 3].iter().copied())
+            .registers([5, 6].iter().copied());
         assert_eq!(11, frame.bytes_consumed());
         assert_eq!(9, frame.bytes_remaining());
         // as frame

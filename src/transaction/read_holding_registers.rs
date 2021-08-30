@@ -22,8 +22,8 @@ pub struct Request<'b> {
     frame: Frame<'b>,
 }
 
-impl<'b> Request<'b> {
-    pub fn parse_from(frame: frame::Frame<'b>) -> Result<Request<'b>, Exception> {
+impl Request<'_> {
+    pub fn parse_from<'a>(frame: frame::Frame<'a>) -> Result<Request<'a>, Exception> {
         // read registers request always has a 4 byte payload (address + length)
         if frame.function() != FUNCTION {
             Err(exception::ILLEGAL_FUNCTION)
@@ -67,21 +67,21 @@ impl<'b> Request<'b> {
         self.first_register()..last_reg_address
     }
 
-    pub fn build_response_from_regs(
+    pub fn build_response_from_regs<'a, I: Iterator<Item = u16>>(
         &self,
-        write_to: &'b mut [u8],
+        write_to: &'a mut [u8],
         device: Device,
-        registers: &[u16],
-    ) -> Frame<'b> {
+        registers: I,
+    ) -> Frame<'a> {
         self.build_response_with(write_to, device, |builder| builder.registers(registers))
     }
 
-    pub fn build_response_with<F>(
+    pub fn build_response_with<'a, F>(
         &self,
-        write_to: &'b mut [u8],
+        write_to: &'a mut [u8],
         device: Device,
         fill_regs: F,
-    ) -> Frame<'b>
+    ) -> Frame<'a>
     where
         F: FnOnce(Builder<AddData>) -> Builder<AddData>,
     {
@@ -215,7 +215,11 @@ mod tests {
 
         let mut response_buffer = [0; 30];
         let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let response = req.build_response_from_regs(&mut response_buffer, frame.device(), &regs);
+        let response = req.build_response_from_regs(
+            &mut response_buffer,
+            frame.device(),
+            regs.iter().copied(),
+        );
         assert_eq!(
             &[
                 0, FUNCTION.0, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 0,

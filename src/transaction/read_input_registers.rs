@@ -65,11 +65,11 @@ impl Request<'_> {
         self.first_register()..last_reg_address
     }
 
-    pub fn build_response_from_regs<'a>(
+    pub fn build_response_from_regs<'a, I: Iterator<Item = u16>>(
         &self,
         write_to: &'a mut [u8],
         device: Device,
-        registers: &[u16],
+        registers: I,
     ) -> Frame<'a> {
         self.build_response_with(write_to, device, |builder| builder.registers(registers))
     }
@@ -213,7 +213,11 @@ mod tests {
 
         let mut response_buffer = [0; 30];
         let regs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let response = req.build_response_from_regs(&mut response_buffer, frame.device(), &regs);
+        let response = req.build_response_from_regs(
+            &mut response_buffer,
+            frame.device(),
+            regs.iter().copied(),
+        );
         assert_eq!(
             &[
                 0, FUNCTION.0, 20, 0, 0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0, 8, 0, 9, 54,

@@ -96,7 +96,7 @@ fn handle_read_holding_register<'a, 'f>(
         Some(ex) => response_builder.exception(modbus::function::READ_HOLDING_REGISTERS, ex),
         None => response_builder
             .function(modbus::function::READ_HOLDING_REGISTERS)
-            .registers(&state.holding_regs[start..end])
+            .registers(state.holding_regs[start..end].iter().copied())
             .finalise(),
     };
     x

@@ -34,7 +34,7 @@ let mut buffer = [0; 10];
 let frame = builder::build_frame(&mut buffer)
                     .for_device(Device::new(0x11))
                     .function(function::READ_HOLDING_REGISTERS)
-                    .bytes(&[0x00, 0x6B])
+                    .bytes([0x00, 0x6B].iter().copied())
                     .register(0x03)
                     .finalise();
 
