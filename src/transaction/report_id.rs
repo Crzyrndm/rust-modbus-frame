@@ -11,10 +11,10 @@ pub struct Request<'a> {
 
 impl Request<'_> {
     pub fn parse_from(frame: frame::Frame<'_>) -> Result<Request, Exception> {
-        // read registers request always has a 4 byte payload (address + length)
+        // report id has no payload bytes
         if frame.function() != FUNCTION {
             Err(exception::ILLEGAL_FUNCTION) // potentially should be panic'ing here?
-        } else if frame.payload().len() == 4 {
+        } else if frame.payload().len() == 0 {
             Ok(Request { frame })
         } else {
             Err(exception::ILLEGAL_DATA)
