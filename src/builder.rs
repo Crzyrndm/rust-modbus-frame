@@ -116,6 +116,15 @@ impl<'b> Builder<'b, AddData> {
         self.registers([r].iter().copied())
     }
 
+    pub fn count_following(mut self, to_count: impl FnOnce(Self) -> Self) -> Self {
+        let current_idx = self.idx;
+        self.idx += 1;
+        let builder = to_count(self);
+        // -1 because we're not counting the marker byte
+        builder.buffer[current_idx] = (builder.idx - current_idx - 1) as u8;
+        builder
+    }
+
     pub fn finalise(self) -> Frame<'b> {
         Frame::new(&self.buffer[..self.idx])
     }
@@ -142,22 +151,24 @@ mod tests {
         assert_eq!(2, frame.bytes_consumed());
         assert_eq!(18, frame.bytes_remaining());
 
-        let frame = frame
-            .byte(1)
-            .register(4)
-            .bytes([2, 3].iter().copied())
-            .registers([5, 6].iter().copied());
-        assert_eq!(11, frame.bytes_consumed());
-        assert_eq!(9, frame.bytes_remaining());
+        let frame = frame.count_following(|frame| {
+            frame
+                .byte(1)
+                .register(4)
+                .bytes([2, 3].iter().copied())
+                .registers([5, 6].iter().copied())
+        });
+        assert_eq!(12, frame.bytes_consumed());
+        assert_eq!(8, frame.bytes_remaining());
         // as frame
         let frame = frame.finalise();
-        assert_eq!(11, frame.raw_bytes().len());
+        assert_eq!(12, frame.raw_bytes().len());
         assert_eq!(Device::new(123), frame.device());
         assert_eq!(Function(213), frame.function());
-        assert_eq!([1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
+        assert_eq!([9, 1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
         let frame_crc = frame.crc();
-        let crc = crc::calculate(&buff[..11]);
+        let crc = crc::calculate(&buff[..12]);
         assert_eq!(crc, frame_crc);
     }
 }
