@@ -103,11 +103,11 @@ impl Request<'_> {
 */
 #[derive(Debug, PartialEq)]
 pub struct Response<'b> {
-    payload: &'b [u8],
+    frame: frame::Frame<'b>,
 }
 
 impl<'b> Response<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Exception> {
+    pub fn parse_from(frame: frame::Frame<'b>) -> Result<Response<'b>, Exception> {
         if frame.function().0 & 0x7F != FUNCTION.0 {
             Err(exception::ILLEGAL_FUNCTION)
         } else if (frame.function().0 & 0x80) == 0x80 && !frame.payload().is_empty() {
@@ -117,9 +117,7 @@ impl<'b> Response<'b> {
             let valid = frame.payload().len() >= 3 // atleast 1 register in response
                         && frame.payload().len() == (frame.payload()[0] as usize + 1); // length byte == actual length
             if valid {
-                Ok(Response {
-                    payload: frame.payload(),
-                })
+                Ok(Response { frame })
             } else {
                 Err(exception::ILLEGAL_DATA)
             }
@@ -127,15 +125,15 @@ impl<'b> Response<'b> {
     }
 
     pub fn num_data_bytes(&self) -> u8 {
-        self.payload[0]
+        self.frame.payload()[0]
     }
 
     pub fn register_count(&self) -> u16 {
-        ((self.payload.len() - 1) / 2) as u16
+        ((self.frame.payload().len() - 1) / 2) as u16
     }
 
     pub fn registers(&self) -> crate::iter::registers::Registers {
-        Registers::create(&self.payload[1..])
+        Registers::create(&self.frame.payload()[1..])
     }
 }
 
@@ -182,7 +180,7 @@ mod tests {
     fn test_response_impl() {
         let payload = [0x00, FUNCTION.0, 4, 0x59, 0x00, 0x31, 0x01];
         let frame = Frame::new(&payload[..]);
-        let req = Response::parse_from(&frame).unwrap();
+        let req = Response::parse_from(frame).unwrap();
         assert_eq!(req.num_data_bytes(), 4);
         assert_eq!(req.register_count(), 2);
         let registers: Vec<_> = req.registers().collect();
@@ -192,19 +190,19 @@ mod tests {
         let payload = [0x00, FUNCTION.0 + 1, 4, 0x59, 0x00, 0x31, 0x01];
         let frame = Frame::new(&payload[..]);
         assert_eq!(
-            Response::parse_from(&frame),
+            Response::parse_from(frame),
             Err(exception::ILLEGAL_FUNCTION)
         );
 
         // exception reqponse
         let payload = [0x00, 0x80 | FUNCTION.0, exception::DEVICE_FAILURE.0];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Response::parse_from(&frame), Err(exception::DEVICE_FAILURE));
+        assert_eq!(Response::parse_from(frame), Err(exception::DEVICE_FAILURE));
 
         // length mismatch
         let payload = [0x00, FUNCTION.0, 4, 0x00, 0x00];
         let frame = Frame::new(&payload[..]);
-        assert_eq!(Response::parse_from(&frame), Err(exception::ILLEGAL_DATA));
+        assert_eq!(Response::parse_from(frame), Err(exception::ILLEGAL_DATA));
     }
 
     #[test]

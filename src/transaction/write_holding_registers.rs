@@ -98,11 +98,11 @@ impl Request<'_> {
 */
 #[derive(Debug, PartialEq)]
 pub struct Response<'b> {
-    payload: &'b [u8],
+    frame: frame::Frame<'b>,
 }
 
 impl<'b> Response<'b> {
-    pub fn parse_from(frame: &'b frame::Frame<'b>) -> Result<Response<'b>, Exception> {
+    pub fn parse_from(frame: frame::Frame<'b>) -> Result<Response<'b>, Exception> {
         // if function code doesn't match (7 bit, ignoring the exception bit)
         if frame.function().0 & 0x7F != FUNCTION.0 {
             Err(exception::ILLEGAL_FUNCTION) // panic?
@@ -112,9 +112,7 @@ impl<'b> Response<'b> {
         } else {
             let valid = frame.payload().len() == 4; // atleast 1 register in response
             if valid {
-                Ok(Response {
-                    payload: frame.payload(),
-                })
+                Ok(Response { frame })
             } else {
                 Err(exception::ILLEGAL_DATA)
             }
@@ -122,10 +120,10 @@ impl<'b> Response<'b> {
     }
 
     pub fn address(&self) -> u16 {
-        u16::from_be_bytes(self.payload[..2].try_into().unwrap())
+        u16::from_be_bytes(self.frame.payload()[..2].try_into().unwrap())
     }
 
     pub fn register_count(&self) -> u16 {
-        u16::from_be_bytes(self.payload[2..4].try_into().unwrap())
+        u16::from_be_bytes(self.frame.payload()[2..4].try_into().unwrap())
     }
 }
