@@ -27,7 +27,7 @@ impl<'b> Frame<'b> {
         Function(self.data[1])
     }
 
-    pub fn calulate_crc(&self) -> u16 {
+    pub fn calculate_crc(&self) -> u16 {
         let crc_idx = self.data.len() - 2;
         calculate_crc16(&self.data[..crc_idx])
     }
@@ -65,7 +65,7 @@ impl<'b> TryFrom<&'b [u8]> for Frame<'b> {
 
     fn try_from(value: &'b [u8]) -> Result<Self, Self::Error> {
         let frame = Frame::new(value);
-        if frame.calulate_crc().to_le_bytes() == frame.crc_bytes() {
+        if frame.calculate_crc().to_le_bytes() == frame.crc_bytes() {
             Ok(frame)
         } else {
             Err(())
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(frame.address(), 0);
         assert_eq!(frame.function(), Function(1));
         assert_eq!(frame.payload(), [2, 3, 4, 5, 6, 7, 8, 9]);
-        assert_eq!(frame.calulate_crc().to_le_bytes(), [116, 69]);
+        assert_eq!(frame.calculate_crc().to_le_bytes(), [116, 69]);
     }
 
     #[test]
@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(frame.address(), 0x11);
         assert_eq!(frame.function(), function::READ_HOLDING_REGISTERS);
         assert_eq!(frame.payload(), [0x00, 0x6B, 0x00, 0x03]);
-        assert_eq!(frame.calulate_crc().to_le_bytes(), frame.crc_bytes());
+        assert_eq!(frame.calculate_crc().to_le_bytes(), frame.crc_bytes());
         // and since no copies were made, a view of the original bytes is available (excluding CRC)
         assert_eq!(frame.raw_bytes(), bytes);
     }

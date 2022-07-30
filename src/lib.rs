@@ -7,12 +7,20 @@
 //!
 //! Takes in a slice of bytes, does basic validation (length/crc) then passes to the decoder
 //! Decoder returns an enum (e.g. ReadHoldingRegisters(address, func, num_regs, &[regs], crc)) which the application can then act upon
-//! Decoding should not require any copies to be made. Only references into the byte array
+//! Decoding doesn't require any copies to be made. Only references into the byte array
+//!
+//! ```rust
+//! // TODO: decode example
+//! ```
 //!
 //! ## Encode
 //!
 //! Encoding is done using the builder pattern. The builder is initialised with the scratch array, which it then fills in as
 //! address, function, etc. are provided
+//!
+//! ```rust
+//! // TODO: encode example
+//! ```
 
 pub mod builder;
 pub mod decoder;
@@ -21,6 +29,7 @@ pub mod frame;
 pub mod function;
 
 pub use exception::Exception;
+pub use frame::Frame;
 pub use function::Function;
 
 pub fn calculate_crc16(bytes: &[u8]) -> u16 {

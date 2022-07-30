@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(Function(213), frame.function());
         assert_eq!([9, 1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
-        let frame_crc = frame.calulate_crc();
+        let frame_crc = frame.calculate_crc();
         let crc = calculate_crc16(&buff[..12]);
         assert_eq!(crc, frame_crc);
     }
