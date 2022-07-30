@@ -83,7 +83,7 @@ impl<'b> Builder<'b, AddFunction> {
 
 impl<'b> Builder<'b, AddData> {
     /// bytes copied directly into the frame data as is
-    pub fn bytes<I: Iterator<Item = u8>>(mut self, iter: I) -> Builder<'b, AddData> {
+    pub fn bytes<I: IntoIterator<Item = u8>>(mut self, iter: I) -> Builder<'b, AddData> {
         for byte in iter {
             self.buffer[self.idx] = byte;
             self.idx += 1;
@@ -97,7 +97,7 @@ impl<'b> Builder<'b, AddData> {
     }
 
     /// registers copied into the frame data as big endian bytes
-    pub fn registers<I: Iterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
+    pub fn registers<I: IntoIterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
         for register in iter {
             let bytes = register.to_be_bytes();
             self.buffer[self.idx] = bytes[0];

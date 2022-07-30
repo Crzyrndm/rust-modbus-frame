@@ -1090,14 +1090,23 @@ pub mod response {
 
 #[cfg(test)]
 mod tests {
+    use crate::function;
+
     use super::*;
 
     #[test]
     fn command_write_multiple_coils() {
-        let raw = [
-            0xB_u8, 0xF, 0x00, 0x1B, 0x00, 0x09, 0x02, 0x4D, 0x01, 0x6C, 0xA7,
-        ];
-        let command = command::WriteMultipleCoils::try_from(raw.as_slice()).unwrap();
+        let mut buf = [0; 256];
+        // 0xB, 0xF, 0x0, 0x1B, 0x0, 0x9, 0x2, 0x4D, 0x1, 0x6C, 0xA7
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0xB)
+            .function(function::WRITE_MULTIPLE_COILS)
+            .registers([27, 9])
+            .byte(2)
+            .bytes([0x4D, 0x01])
+            .finalise();
+
+        let command = command::WriteMultipleCoils::try_from(frame.clone()).unwrap();
         assert_eq!(command.start_index(), 27);
         assert_eq!(command.coil_count(), 9);
         assert_eq!(command.payload_len(), 2);
@@ -1115,8 +1124,15 @@ mod tests {
 
     #[test]
     fn response_read_multiple_coils() {
-        let raw = [0x0B_u8, 0x01, 0x04, 0xCD, 0x6B, 0xB2, 0x7F, 0x2B, 0xE1];
-        let command = response::ReadCoils::try_from(raw.as_slice()).unwrap();
+        let mut buf = [0; 256];
+        // 0xB, 0x1, 0x4, 0xCD, 0x6B, 0xB2, 0x7F, 0x2B, 0xE1
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0xB)
+            .function(function::READ_COILS)
+            .byte(4)
+            .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+            .finalise();
+        let command = response::ReadCoils::try_from(frame.clone()).unwrap();
         assert_eq!(command.payload_len(), 4);
         let coils = command.iter_coils().collect::<Vec<_>>();
         let desired = [
