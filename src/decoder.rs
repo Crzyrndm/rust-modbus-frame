@@ -2,7 +2,7 @@
 
 use byteorder::ByteOrder;
 
-use crate::{frame::Frame, Error, FixedLen, Function, FunctionCode, PacketLen};
+use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
 fn try_from_bytes<'a, T>(bytes: &'a [u8]) -> crate::Result<T>
 where
@@ -42,7 +42,7 @@ impl FixedLen for WriteCoil<'_> {
 }
 
 impl FunctionCode for WriteCoil<'_> {
-    const FUNCTION: Function = crate::function::WRITE_COIL;
+    const FUNCTION: Function = function::WRITE_COIL;
 }
 
 impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
@@ -104,7 +104,7 @@ impl FixedLen for WriteHoldingRegister<'_> {
 }
 
 impl FunctionCode for WriteHoldingRegister<'_> {
-    const FUNCTION: Function = crate::function::WRITE_HOLDING_REGISTER;
+    const FUNCTION: Function = function::WRITE_HOLDING_REGISTER;
 }
 
 impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
@@ -142,7 +142,7 @@ pub mod command {
     use byteorder::ByteOrder;
 
     use crate::frame::Frame;
-    use crate::{Error, FixedLen, Function, FunctionCode, PacketLen};
+    use crate::{function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
     #[derive(Debug, PartialEq, Clone, Copy)]
@@ -164,17 +164,38 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            match bytes[1] {
-                1 => ReadCoils::try_from(bytes).map(Self::ReadCoils),
-                2 => ReadDiscreteInputs::try_from(bytes).map(Self::ReadDiscreteInputs),
-                3 => ReadHoldingRegisters::try_from(bytes).map(Self::ReadHolsingRegisters),
-                4 => ReadInputRegisters::try_from(bytes).map(Self::ReadInputRegisters),
-                5 => WriteCoil::try_from(bytes).map(Self::WriteCoil),
-                6 => WriteHoldingRegister::try_from(bytes).map(Self::WriteHoldingRegister),
-                15 => WriteMultipleCoils::try_from(bytes).map(Self::WriteMultipleCoils),
-                16 => WriteMultipleHoldingRegisters::try_from(bytes)
-                    .map(Self::WriteMultipleHoldingRegisters),
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
 
+    impl<'a> TryFrom<Frame<'a>> for CommonCommands<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            match frame.function() {
+                function::READ_COILS => ReadCoils::try_from(frame).map(Self::ReadCoils),
+                function::READ_INPUTS => {
+                    ReadDiscreteInputs::try_from(frame).map(Self::ReadDiscreteInputs)
+                }
+                function::READ_HOLDING_REGISTERS => {
+                    ReadHoldingRegisters::try_from(frame).map(Self::ReadHolsingRegisters)
+                }
+                function::READ_INPUT_REGISTERS => {
+                    ReadInputRegisters::try_from(frame).map(Self::ReadInputRegisters)
+                }
+                function::WRITE_COIL => WriteCoil::try_from(frame).map(Self::WriteCoil),
+                function::WRITE_HOLDING_REGISTER => {
+                    WriteHoldingRegister::try_from(frame).map(Self::WriteHoldingRegister)
+                }
+                function::WRITE_MULTIPLE_COILS => {
+                    WriteMultipleCoils::try_from(frame).map(Self::WriteMultipleCoils)
+                }
+                function::WRITE_MULTIPLE_HOLDING_REGISTERS => {
+                    WriteMultipleHoldingRegisters::try_from(frame)
+                        .map(Self::WriteMultipleHoldingRegisters)
+                }
+                // unknwn function code
                 _ => Err(Error::UnknownFunction),
             }
         }
@@ -209,7 +230,7 @@ pub mod command {
     }
 
     impl FunctionCode for ReadCoils<'_> {
-        const FUNCTION: Function = crate::function::READ_COILS;
+        const FUNCTION: Function = function::READ_COILS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
@@ -270,7 +291,7 @@ pub mod command {
     }
 
     impl FunctionCode for ReadDiscreteInputs<'_> {
-        const FUNCTION: Function = crate::function::READ_INPUTS;
+        const FUNCTION: Function = function::READ_INPUTS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
@@ -331,7 +352,7 @@ pub mod command {
     }
 
     impl FunctionCode for ReadHoldingRegisters<'_> {
-        const FUNCTION: Function = crate::function::READ_HOLDING_REGISTERS;
+        const FUNCTION: Function = function::READ_HOLDING_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
@@ -392,7 +413,7 @@ pub mod command {
     }
 
     impl FunctionCode for ReadInputRegisters<'_> {
-        const FUNCTION: Function = crate::function::READ_INPUT_REGISTERS;
+        const FUNCTION: Function = function::READ_INPUT_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
@@ -482,7 +503,7 @@ pub mod command {
     }
 
     impl FunctionCode for WriteMultipleCoils<'_> {
-        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_COILS;
+        const FUNCTION: Function = function::WRITE_MULTIPLE_COILS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
@@ -560,7 +581,7 @@ pub mod command {
     }
 
     impl FunctionCode for WriteMultipleHoldingRegisters<'_> {
-        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_HOLDING_REGISTERS;
+        const FUNCTION: Function = function::WRITE_MULTIPLE_HOLDING_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
@@ -600,7 +621,7 @@ pub mod response {
     use super::try_from_bytes;
     pub use super::{WriteCoil, WriteHoldingRegister};
 
-    use crate::{frame::Frame, Error, FixedLen, Function, FunctionCode, PacketLen};
+    use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
     #[derive(Debug, PartialEq, Clone, Copy)]
@@ -622,17 +643,38 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            match bytes[1] {
-                1 => ReadCoils::try_from(bytes).map(Self::ReadCoils),
-                2 => ReadDiscreteInputs::try_from(bytes).map(Self::ReadDiscreteInputs),
-                3 => ReadHoldingRegisters::try_from(bytes).map(Self::ReadHolsingRegisters),
-                4 => ReadInputRegisters::try_from(bytes).map(Self::ReadInputRegisters),
-                5 => WriteCoil::try_from(bytes).map(Self::WriteCoil),
-                6 => WriteHoldingRegister::try_from(bytes).map(Self::WriteHoldingRegister),
-                15 => WriteMultipleCoils::try_from(bytes).map(Self::WriteMultipleCoils),
-                16 => WriteMultipleHoldingRegisters::try_from(bytes)
-                    .map(Self::WriteMultipleHoldingRegisters),
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
 
+    impl<'a> TryFrom<Frame<'a>> for CommonResponses<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            match frame.function() {
+                function::READ_COILS => ReadCoils::try_from(frame).map(Self::ReadCoils),
+                function::READ_INPUTS => {
+                    ReadDiscreteInputs::try_from(frame).map(Self::ReadDiscreteInputs)
+                }
+                function::READ_HOLDING_REGISTERS => {
+                    ReadHoldingRegisters::try_from(frame).map(Self::ReadHolsingRegisters)
+                }
+                function::READ_INPUT_REGISTERS => {
+                    ReadInputRegisters::try_from(frame).map(Self::ReadInputRegisters)
+                }
+                function::WRITE_COIL => WriteCoil::try_from(frame).map(Self::WriteCoil),
+                function::WRITE_HOLDING_REGISTER => {
+                    WriteHoldingRegister::try_from(frame).map(Self::WriteHoldingRegister)
+                }
+                function::WRITE_MULTIPLE_COILS => {
+                    WriteMultipleCoils::try_from(frame).map(Self::WriteMultipleCoils)
+                }
+                function::WRITE_MULTIPLE_HOLDING_REGISTERS => {
+                    WriteMultipleHoldingRegisters::try_from(frame)
+                        .map(Self::WriteMultipleHoldingRegisters)
+                }
+                // unknwn function code
                 _ => Err(Error::UnknownFunction),
             }
         }
@@ -683,7 +725,7 @@ pub mod response {
     }
 
     impl FunctionCode for ReadCoils<'_> {
-        const FUNCTION: Function = crate::function::READ_COILS;
+        const FUNCTION: Function = function::READ_COILS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
@@ -753,7 +795,7 @@ pub mod response {
     }
 
     impl FunctionCode for ReadDiscreteInputs<'_> {
-        const FUNCTION: Function = crate::function::READ_INPUTS;
+        const FUNCTION: Function = function::READ_INPUTS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
@@ -822,7 +864,7 @@ pub mod response {
     }
 
     impl FunctionCode for ReadHoldingRegisters<'_> {
-        const FUNCTION: Function = crate::function::READ_HOLDING_REGISTERS;
+        const FUNCTION: Function = function::READ_HOLDING_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
@@ -891,7 +933,7 @@ pub mod response {
     }
 
     impl FunctionCode for ReadInputRegisters<'_> {
-        const FUNCTION: Function = crate::function::READ_INPUT_REGISTERS;
+        const FUNCTION: Function = function::READ_INPUT_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
@@ -952,7 +994,7 @@ pub mod response {
     }
 
     impl FunctionCode for WriteMultipleCoils<'_> {
-        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_COILS;
+        const FUNCTION: Function = function::WRITE_MULTIPLE_COILS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
@@ -1013,7 +1055,7 @@ pub mod response {
     }
 
     impl FunctionCode for WriteMultipleHoldingRegisters<'_> {
-        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_HOLDING_REGISTERS;
+        const FUNCTION: Function = function::WRITE_MULTIPLE_HOLDING_REGISTERS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
