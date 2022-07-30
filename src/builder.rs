@@ -3,6 +3,7 @@
 
 use crate::{calculate_crc16, frame::Frame, Exception, Function};
 
+/// Write modbus messages more conveniently and coherently using named operations.
 #[derive(Debug)]
 pub struct Builder<'b, STATE> {
     buffer: &'b mut [u8],
@@ -11,18 +12,19 @@ pub struct Builder<'b, STATE> {
     _state: STATE,
 }
 
+/// Builder state tag type
 /// initial state, nothing set
 pub struct Initial;
+/// /// Builder state tag type
 /// address set, function next
 pub struct AddFunction;
+/// Builder state tag type
 /// add data, then finalise to a frame
 pub struct AddData;
 
 /// building frames conveniently
 /// ```
-/// use modbus_frames as modbus;
-/// use modbus::Function;
-/// use modbus::builder;
+/// use modbus_frames::{builder, Function};
 ///
 /// let mut buff = [0u8; 20];
 /// let frame = builder::build_frame(&mut buff)
@@ -85,7 +87,7 @@ impl<'b> Builder<'b, AddFunction> {
 
 impl<'b> Builder<'b, AddData> {
     /// bytes copied directly into the frame data as is
-    pub fn bytes<I: Iterator<Item = u8>>(mut self, iter: I) -> Builder<'b, AddData> {
+    pub fn bytes<I: IntoIterator<Item = u8>>(mut self, iter: I) -> Builder<'b, AddData> {
         for byte in iter {
             self.buffer[self.idx] = byte;
             self.idx += 1;
@@ -99,7 +101,7 @@ impl<'b> Builder<'b, AddData> {
     }
 
     /// registers copied into the frame data as big endian bytes
-    pub fn registers<I: Iterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
+    pub fn registers<I: IntoIterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
         for register in iter {
             let bytes = register.to_be_bytes();
             self.buffer[self.idx] = bytes[0];
@@ -128,7 +130,7 @@ impl<'b> Builder<'b, AddData> {
         let crc = calculate_crc16(&self.buffer[..self.idx]).to_le_bytes();
         self.buffer[self.idx] = crc[0];
         self.buffer[self.idx + 1] = crc[1];
-        Frame::new(&self.buffer[..self.idx + 2])
+        Frame::new_unchecked(&self.buffer[..self.idx + 2])
     }
 }
 

@@ -1,7 +1,19 @@
 //! Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct Exception(pub u8);
+
+impl From<u8> for Exception {
+    fn from(f: u8) -> Self {
+        Exception(f)
+    }
+}
+
+impl From<Exception> for u8 {
+    fn from(f: Exception) -> Self {
+        f.0
+    }
+}
 
 /// Function code received in the query is not recognized or allowed by slave
 pub const ILLEGAL_FUNCTION: Exception = Exception(1);
