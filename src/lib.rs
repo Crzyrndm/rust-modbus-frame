@@ -1,27 +1,75 @@
-#![doc = include_str!("../README.md")]
-#![cfg_attr(not(test), no_std)]
-// this crate is intended for use in both hosted and embedded contexts. No allocations or other conveniences
+//! # Simple modbus RTU library
+//!
+//! By default this library knows about Coils (1/5/15), Discrete Inputs(2), Holding Registers(3/6/16), and Input Registers(4) only
+//! Users can extend this by replacing the encoder implementation
+//!
+//! ## Decode
+//!
+//! Takes in a slice of bytes, does basic validation (length/crc) then passes to the decoder
+//! Decoder returns an enum (e.g. ReadHoldingRegisters(address, func, num_regs, &[regs], crc)) which the application can then act upon
+//! Decoding doesn't require any copies to be made. Only references into the byte array
+//!
+//! ```rust
+//! // TODO: decode example
+//! ```
+//!
+//! ## Encode
+//!
+//! Encoding is done using the builder pattern. The builder is initialised with the scratch array, which it then fills in as
+//! address, function, etc. are provided
+//!
+//! ```rust
+//! // TODO: encode example
+//! ```
 
-// pub once exists
-pub mod ascii;
 pub mod builder;
-pub mod device;
-pub mod entity;
-pub mod error;
+pub mod decoder;
 pub mod exception;
 pub mod frame;
 pub mod function;
-pub mod iter;
-pub mod modbus_traits;
-pub mod rtu;
-pub mod transaction;
 
-type Result<T> = core::result::Result<T, error::Error>;
+pub use exception::Exception;
+pub use frame::Frame;
+pub use function::Function;
 
-/// function code specifies how a device processes the frame
-/// top bit is set to indicate an exception response so valid range is 0-127
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct Function(pub u8);
+pub fn calculate_crc16(bytes: &[u8]) -> u16 {
+    crc16::State::<crc16::MODBUS>::calculate(bytes)
+}
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct Exception(pub u8);
+pub trait PacketLen {
+    fn packet_len(&self) -> u8;
+    fn minimum_len() -> u8;
+}
+
+pub trait FixedLen: PacketLen {
+    const LEN: u8;
+}
+
+impl<T: FixedLen> PacketLen for T {
+    fn packet_len(&self) -> u8 {
+        Self::LEN
+    }
+
+    fn minimum_len() -> u8 {
+        Self::LEN
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+#[non_exhaustive] // new errors may be added later
+pub enum Error {
+    None,
+    InvalidLength,
+    InvalidCorrupt,
+    InvalidEncoding,
+    OtherAddress,
+    WrongFunction,
+}
+
+// std::error::Error trait obviously isn't available in no_std
+// whould this implement any other error traits?
+
+#[cfg(test)]
+mod tests {
+    //
+}

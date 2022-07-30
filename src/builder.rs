@@ -1,7 +1,7 @@
 //! construct a modbus frame structure in a provided buffer
 //! internally, this uses the RTU format without the CRC
 
-use crate::{device::Device, frame::Frame, Exception, Function};
+use crate::{calculate_crc16, frame::Frame, Exception, Function};
 
 #[derive(Debug)]
 pub struct Builder<'b, STATE> {
@@ -21,19 +21,18 @@ pub struct AddData;
 /// building frames conveniently
 /// ```
 /// use modbus_frames as modbus;
-/// use modbus::device::Device;
 /// use modbus::Function;
 /// use modbus::builder;
 ///
 /// let mut buff = [0u8; 20];
 /// let frame = builder::build_frame(&mut buff)
-///                 .for_device(Device::new(1))
+///                 .for_address(1)
 ///                 .function(Function(2))
 ///                 .register(3)
 ///                 .finalise();
-/// assert_eq!(frame.raw_bytes(), [1, 2, 0, 3]);
+/// assert_eq!(frame.raw_bytes(), [1, 2, 0, 3, 224, 25]);
 /// ```
-pub fn build_frame<'b>(buff: &'b mut [u8]) -> Builder<'b, Initial> {
+pub fn build_frame(buff: &'_ mut [u8]) -> Builder<'_, Initial> {
     Builder {
         buffer: buff,
         idx: 0,
@@ -57,8 +56,8 @@ impl<'b, STATE> Builder<'b, STATE> {
 }
 
 impl<'b> Builder<'b, Initial> {
-    pub fn for_device(self, device: Device) -> Builder<'b, AddFunction> {
-        self.buffer[self.idx] = device.address();
+    pub fn for_address(self, address: u8) -> Builder<'b, AddFunction> {
+        self.buffer[self.idx] = address;
         Builder {
             buffer: self.buffer,
             idx: 1,
@@ -126,14 +125,17 @@ impl<'b> Builder<'b, AddData> {
     }
 
     pub fn finalise(self) -> Frame<'b> {
-        Frame::new(&self.buffer[..self.idx])
+        let crc = calculate_crc16(&self.buffer[..self.idx]).to_le_bytes();
+        self.buffer[self.idx] = crc[0];
+        self.buffer[self.idx + 1] = crc[1];
+        Frame::new(&self.buffer[..self.idx + 2])
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::build_frame;
-    use crate::{device::Device, rtu::crc, Function};
+    use crate::{calculate_crc16, Function};
 
     #[test]
     fn test_builder() {
@@ -143,7 +145,7 @@ mod tests {
         assert_eq!(0, frame.bytes_consumed());
         assert_eq!(20, frame.bytes_remaining());
         // function state
-        let frame = frame.for_device(Device::new(123));
+        let frame = frame.for_address(123);
         assert_eq!(1, frame.bytes_consumed());
         assert_eq!(19, frame.bytes_remaining());
         // data state
@@ -162,13 +164,13 @@ mod tests {
         assert_eq!(8, frame.bytes_remaining());
         // as frame
         let frame = frame.finalise();
-        assert_eq!(12, frame.raw_bytes().len());
-        assert_eq!(Device::new(123), frame.device());
+        assert_eq!(14, frame.raw_bytes().len());
+        assert_eq!(123, frame.address());
         assert_eq!(Function(213), frame.function());
         assert_eq!([9, 1, 0, 4, 2, 3, 0, 5, 0, 6], frame.payload());
 
-        let frame_crc = frame.crc();
-        let crc = crc::calculate(&buff[..12]);
+        let frame_crc = frame.calculate_crc();
+        let crc = calculate_crc16(&buff[..12]);
         assert_eq!(crc, frame_crc);
     }
 }
