@@ -3,6 +3,7 @@
 
 use crate::{calculate_crc16, frame::Frame, Exception, Function};
 
+/// Write modbus messages more conveniently and coherently using named operations.
 #[derive(Debug)]
 pub struct Builder<'b, STATE> {
     buffer: &'b mut [u8],
@@ -11,10 +12,13 @@ pub struct Builder<'b, STATE> {
     _state: STATE,
 }
 
+/// Builder state tag type
 /// initial state, nothing set
 pub struct Initial;
+/// /// Builder state tag type
 /// address set, function next
 pub struct AddFunction;
+/// Builder state tag type
 /// add data, then finalise to a frame
 pub struct AddData;
 

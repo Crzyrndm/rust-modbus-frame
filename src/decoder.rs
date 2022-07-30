@@ -11,7 +11,7 @@ pub const COIL_ON: u16 = 0xFF00;
 /// All other values are invalid
 pub const COIL_OFF: u16 = 0x0000;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WriteCoil<'a> {
     frame: Frame<'a>,
 }
@@ -28,7 +28,7 @@ impl<'a> WriteCoil<'a> {
     }
 
     pub fn as_frame(&self) -> Frame<'a> {
-        self.frame.clone()
+        self.frame
     }
 
     pub fn index(&self) -> u16 {
@@ -78,7 +78,7 @@ impl<'a> From<WriteCoil<'a>> for Frame<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WriteHoldingRegister<'a> {
     frame: Frame<'a>,
 }
@@ -95,7 +95,7 @@ impl<'a> WriteHoldingRegister<'a> {
     }
 
     pub fn as_frame(&self) -> Frame<'a> {
-        self.frame.clone()
+        self.frame
     }
 
     pub fn index(&self) -> u16 {
@@ -156,7 +156,7 @@ pub mod command {
     pub use super::{WriteCoil, WriteHoldingRegister};
 
     /// The default responses for a decode type
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CommonCommands<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -212,7 +212,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadCoils<'a> {
         frame: Frame<'a>,
     }
@@ -229,7 +229,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -278,7 +278,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadDiscreteInputs<'a> {
         frame: Frame<'a>,
     }
@@ -295,7 +295,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -344,7 +344,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -361,7 +361,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -410,7 +410,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadInputRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -427,7 +427,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -476,7 +476,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct WriteMultipleCoils<'a> {
         frame: Frame<'a>,
     }
@@ -493,7 +493,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -567,7 +567,7 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct WriteMultipleHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -584,7 +584,7 @@ pub mod command {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -660,7 +660,7 @@ pub mod response {
     use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CommonResponses<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -716,7 +716,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadCoils<'a> {
         frame: Frame<'a>,
     }
@@ -733,7 +733,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -796,7 +796,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadDiscreteInputs<'a> {
         frame: Frame<'a>,
     }
@@ -813,7 +813,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -876,7 +876,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -893,7 +893,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -950,7 +950,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ReadInputRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -967,7 +967,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -1024,7 +1024,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct WriteMultipleCoils<'a> {
         frame: Frame<'a>,
     }
@@ -1041,7 +1041,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -1090,7 +1090,7 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct WriteMultipleHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -1107,7 +1107,7 @@ pub mod response {
         }
 
         pub fn as_frame(&self) -> Frame<'a> {
-            self.frame.clone()
+            self.frame
         }
 
         pub fn start_index(&self) -> u16 {
@@ -1175,7 +1175,7 @@ mod tests {
 
         let commands = [
             command::ReadCoils::try_from(frame.raw_bytes()).unwrap(),
-            command::ReadCoils::try_from(frame.clone()).unwrap(),
+            command::ReadCoils::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1196,7 +1196,7 @@ mod tests {
 
         let commands = [
             command::ReadDiscreteInputs::try_from(frame.raw_bytes()).unwrap(),
-            command::ReadDiscreteInputs::try_from(frame.clone()).unwrap(),
+            command::ReadDiscreteInputs::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1217,7 +1217,7 @@ mod tests {
 
         let commands = [
             command::ReadHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
-            command::ReadHoldingRegisters::try_from(frame.clone()).unwrap(),
+            command::ReadHoldingRegisters::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1238,7 +1238,7 @@ mod tests {
 
         let commands = [
             command::ReadInputRegisters::try_from(frame.raw_bytes()).unwrap(),
-            command::ReadInputRegisters::try_from(frame.clone()).unwrap(),
+            command::ReadInputRegisters::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1259,7 +1259,7 @@ mod tests {
 
         let commands = [
             command::WriteCoil::try_from(frame.raw_bytes()).unwrap(),
-            command::WriteCoil::try_from(frame.clone()).unwrap(),
+            command::WriteCoil::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1280,7 +1280,7 @@ mod tests {
 
         let commands = [
             command::WriteHoldingRegister::try_from(frame.raw_bytes()).unwrap(),
-            command::WriteHoldingRegister::try_from(frame.clone()).unwrap(),
+            command::WriteHoldingRegister::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1303,7 +1303,7 @@ mod tests {
 
         let commands = [
             command::WriteMultipleCoils::try_from(frame.raw_bytes()).unwrap(),
-            command::WriteMultipleCoils::try_from(frame.clone()).unwrap(),
+            command::WriteMultipleCoils::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1337,7 +1337,7 @@ mod tests {
 
         let commands = [
             command::WriteMultipleHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
-            command::WriteMultipleHoldingRegisters::try_from(frame.clone()).unwrap(),
+            command::WriteMultipleHoldingRegisters::try_from(frame).unwrap(),
         ];
 
         for command in commands {
@@ -1440,7 +1440,7 @@ mod tests {
             .finalise();
         let responses = [
             response::ReadCoils::try_from(frame.raw_bytes()).unwrap(),
-            response::ReadCoils::try_from(frame.clone()).unwrap(),
+            response::ReadCoils::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1469,7 +1469,7 @@ mod tests {
             .finalise();
         let responses = [
             response::ReadDiscreteInputs::try_from(frame.raw_bytes()).unwrap(),
-            response::ReadDiscreteInputs::try_from(frame.clone()).unwrap(),
+            response::ReadDiscreteInputs::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1499,7 +1499,7 @@ mod tests {
 
         let responses = [
             response::ReadHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
-            response::ReadHoldingRegisters::try_from(frame.clone()).unwrap(),
+            response::ReadHoldingRegisters::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1524,7 +1524,7 @@ mod tests {
 
         let responses = [
             response::ReadInputRegisters::try_from(frame.raw_bytes()).unwrap(),
-            response::ReadInputRegisters::try_from(frame.clone()).unwrap(),
+            response::ReadInputRegisters::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1548,7 +1548,7 @@ mod tests {
 
         let responses = [
             response::WriteCoil::try_from(frame.raw_bytes()).unwrap(),
-            response::WriteCoil::try_from(frame.clone()).unwrap(),
+            response::WriteCoil::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1569,7 +1569,7 @@ mod tests {
 
         let responses = [
             response::WriteHoldingRegister::try_from(frame.raw_bytes()).unwrap(),
-            response::WriteHoldingRegister::try_from(frame.clone()).unwrap(),
+            response::WriteHoldingRegister::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1590,7 +1590,7 @@ mod tests {
 
         let responses = [
             response::WriteMultipleCoils::try_from(frame.raw_bytes()).unwrap(),
-            response::WriteMultipleCoils::try_from(frame.clone()).unwrap(),
+            response::WriteMultipleCoils::try_from(frame).unwrap(),
         ];
 
         for response in responses {
@@ -1611,7 +1611,7 @@ mod tests {
 
         let responses = [
             response::WriteMultipleHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
-            response::WriteMultipleHoldingRegisters::try_from(frame.clone()).unwrap(),
+            response::WriteMultipleHoldingRegisters::try_from(frame).unwrap(),
         ];
 
         for response in responses {

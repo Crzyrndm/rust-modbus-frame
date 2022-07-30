@@ -2,7 +2,7 @@
 
 /// function code specifies how a device processes the frame
 /// top bit is set to indicate an exception response so valid range is 0-127
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct Function(pub u8);
 
 impl From<u8> for Function {

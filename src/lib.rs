@@ -88,7 +88,7 @@ impl<T: FixedLen> PacketLen for T {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive] // new errors may be added later
 pub enum Error {
     /// Valid message lengths are 4-256 bytes
@@ -102,8 +102,6 @@ pub enum Error {
     /// message size is invalid for the function code
     DecodeInvalidLength,
 }
-
-type Result<T, E = Error> = core::result::Result<T, E>;
 
 // std::error::Error trait obviously isn't available in no_std
 // whould this implement any other error traits?

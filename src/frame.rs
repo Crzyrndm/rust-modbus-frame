@@ -4,7 +4,7 @@ use crate::{calculate_crc16, verify_crc16, Error, Function};
 
 /// Frame provides functions to view a series of bytes in RTU format as a modbus data frame
 /// `|address(1)|function(1)|payload(0..252)|crc16(2)`
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Frame<'b> {
     data: &'b [u8],
 }

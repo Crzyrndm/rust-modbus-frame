@@ -1,6 +1,6 @@
 //! Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct Exception(pub u8);
 
 impl From<u8> for Exception {
