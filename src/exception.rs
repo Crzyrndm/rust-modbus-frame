@@ -3,6 +3,18 @@
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Exception(pub u8);
 
+impl From<u8> for Exception {
+    fn from(f: u8) -> Self {
+        Exception(f)
+    }
+}
+
+impl From<Exception> for u8 {
+    fn from(f: Exception) -> Self {
+        f.0
+    }
+}
+
 /// Function code received in the query is not recognized or allowed by slave
 pub const ILLEGAL_FUNCTION: Exception = Exception(1);
 /// Data address of some or all the required entities are not allowed or do not exist in slave

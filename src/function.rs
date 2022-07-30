@@ -5,6 +5,18 @@
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Function(pub u8);
 
+impl From<u8> for Function {
+    fn from(f: u8) -> Self {
+        Function(f)
+    }
+}
+
+impl From<Function> for u8 {
+    fn from(f: Function) -> Self {
+        f.0
+    }
+}
+
 /// Request:
 ///     Address of first coil to read (16-bit)
 ///     Number of coils to read (16-bit)
