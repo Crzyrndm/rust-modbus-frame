@@ -4,13 +4,6 @@ use byteorder::ByteOrder;
 
 use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
-fn try_from_bytes<'a, T>(bytes: &'a [u8]) -> crate::Result<T>
-where
-    T: 'a + PacketLen + FunctionCode + TryFrom<Frame<'a>, Error = crate::Error>,
-{
-    let frame = Frame::try_from(bytes)?;
-    T::try_from(frame)
-}
 /// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
 /// All other values are invalid
 pub const COIL_ON: u16 = 0xFF00;
@@ -28,6 +21,14 @@ impl<'a> WriteCoil<'a> {
         Self {
             frame: Frame::new_unchecked(bytes),
         }
+    }
+
+    pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+        Self { frame }
+    }
+
+    pub fn as_frame(&self) -> Frame<'a> {
+        self.frame.clone()
     }
 
     pub fn index(&self) -> u16 {
@@ -52,7 +53,8 @@ impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
     type Error = crate::Error;
 
     fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-        try_from_bytes(bytes)
+        let frame = Frame::try_from(bytes)?;
+        Self::try_from(frame)
     }
 }
 
@@ -110,7 +112,8 @@ impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
     type Error = crate::Error;
 
     fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-        try_from_bytes(bytes)
+        let frame = Frame::try_from(bytes)?;
+        Self::try_from(frame)
     }
 }
 
@@ -142,7 +145,6 @@ pub mod command {
     use crate::frame::Frame;
     use crate::{function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
-    use super::try_from_bytes;
     pub use super::{WriteCoil, WriteHoldingRegister};
 
     /// The default responses for a decode type
@@ -235,7 +237,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -292,7 +295,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -349,7 +353,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -406,7 +411,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -488,7 +494,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -562,7 +569,8 @@ pub mod command {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -588,10 +596,9 @@ pub mod command {
 }
 
 pub mod response {
-    use bitvec::order::{Lsb0, Msb0};
+    use bitvec::order::Lsb0;
     use byteorder::ByteOrder;
 
-    use super::try_from_bytes;
     pub use super::{WriteCoil, WriteHoldingRegister};
 
     use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
@@ -700,7 +707,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -771,7 +779,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -836,7 +845,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -901,7 +911,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -958,7 +969,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
@@ -1015,7 +1027,8 @@ pub mod response {
         type Error = crate::Error;
 
         fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-            try_from_bytes(bytes)
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
         }
     }
 
