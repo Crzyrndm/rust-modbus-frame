@@ -1,59 +1,81 @@
-use crate::{calculate_crc16, Function};
+use byteorder::ByteOrder;
+
+use crate::{calculate_crc16, verify_crc16, Error, Function};
 
 /// Frame provides functions to view a series of bytes in RTU format as a modbus data frame
+/// `|address(1)|function(1)|payload(0..252)|crc16(2)`
 #[derive(PartialEq, Debug, Clone)]
 pub struct Frame<'b> {
     data: &'b [u8],
 }
 
 impl<'b> Frame<'b> {
-    /// panics if bytes.len() < 4
+    /// Creates a new frame without validation
     ///
-    /// This should be used internally to constructs that enforce that the input generates the expected frame
-    /// - from &[u8] -> use Frame::try_from, invalid length or CRC will result in an error
-    /// - frame::build_frame will construct a valid frame from various components in a reasonably ergonomic form
-    /// - method is public to allow for potential extensions
-    pub fn new(bytes: &'b [u8]) -> Self {
-        // smallest valid modbus data is just address/function + CRC. Anything smaller is invalid
-        assert!(bytes.len() >= 4);
+    /// # UNCHECKED
+    /// if `bytes.len() < 4` The created frame will be invalid and later operations are likely to panic.
+    ///
+    /// Prefer to use other methods to create Frame objects
+    /// * from &[u8]: use Frame::try_from, invalid length or CRC will result in an error
+    /// * frame::build_frame will construct a valid frame from various components in a reasonably ergonomic form
+    ///
+    /// This method is public to allow for potential external extensions
+    pub fn new_unchecked(bytes: &'b [u8]) -> Self {
         Frame { data: bytes }
     }
 
+    /// The address byte of the frame
     pub fn address(&self) -> u8 {
         self.data[0]
     }
 
+    /// the function code of the frame
     pub fn function(&self) -> Function {
         Function(self.data[1])
     }
 
+    /// calculate the expected CRC of the frame
+    ///
+    /// NOTE: if Self::new_unchecked was used to create this instance, there is a possibility this will not be equal to `self.crc()`
     pub fn calculate_crc(&self) -> u16 {
         let crc_idx = self.data.len() - 2;
         calculate_crc16(&self.data[..crc_idx])
     }
 
+    /// All bytes between the address/function code and CRC
     pub fn payload(&self) -> &[u8] {
         let crc_idx = self.data.len() - 2;
         &self.data[2..crc_idx]
     }
 
+    /// crc bytes as a u16
+    pub fn crc(&self) -> u16 {
+        byteorder::LittleEndian::read_u16(self.crc_bytes())
+    }
+
+    /// The crc bytes
     pub fn crc_bytes(&self) -> &[u8] {
         let crc_idx = self.data.len() - 2;
         &self.data[crc_idx..]
     }
 
+    /// All of the bytes in the message (address, function, payload, crc)
     pub fn raw_bytes(&self) -> &[u8] {
         self.data
     }
 
+    /// All of the bytes in the message (address, function, payload, crc)
+    /// Consumes `Self` to tie the lifetime to the underlying array
     pub fn into_raw_bytes(self) -> &'b [u8] {
         self.data
     }
 
+    /// Iterator returning the message bytes in RTU format
     pub fn rtu_bytes(&self) -> impl Iterator<Item = u8> + 'b {
         self.data.iter().copied()
     }
 
+    /// Iterator returning the message bytes in ASCII format
     pub fn ascii_bytes(&self) /*-> impl Iterator<Item = u8> + 'b*/
     {
         todo!()
@@ -61,14 +83,15 @@ impl<'b> Frame<'b> {
 }
 
 impl<'b> TryFrom<&'b [u8]> for Frame<'b> {
-    type Error = ();
+    type Error = Error;
 
-    fn try_from(value: &'b [u8]) -> Result<Self, Self::Error> {
-        let frame = Frame::new(value);
-        if frame.calculate_crc().to_le_bytes() == frame.crc_bytes() {
-            Ok(frame)
+    fn try_from(bytes: &'b [u8]) -> Result<Self, Self::Error> {
+        if bytes.len() < 4 {
+            Err(Self::Error::InvalidLength)
+        } else if !verify_crc16(bytes) {
+            Err(Self::Error::InvalidCrc)
         } else {
-            Err(())
+            Ok(Frame::new_unchecked(bytes))
         }
     }
 }
@@ -81,12 +104,16 @@ mod tests {
     #[test]
     fn test_frame_views() {
         let test_data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 116, 69];
-        let frame = Frame::new(&test_data[..]);
+        let frame = Frame::new_unchecked(&test_data);
 
         assert_eq!(frame.address(), 0);
         assert_eq!(frame.function(), Function(1));
         assert_eq!(frame.payload(), [2, 3, 4, 5, 6, 7, 8, 9]);
-        assert_eq!(frame.calculate_crc().to_le_bytes(), [116, 69]);
+        assert_eq!(frame.raw_bytes(), test_data);
+        assert_eq!(frame.raw_bytes(), frame.rtu_bytes().collect::<Vec<_>>());
+        assert_eq!(frame.crc_bytes(), [116, 69]);
+        assert_eq!(frame.crc_bytes(), frame.calculate_crc().to_le_bytes());
+        assert_eq!(frame.crc(), frame.calculate_crc());
     }
 
     #[test]

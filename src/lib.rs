@@ -50,7 +50,7 @@ pub fn verify_crc16(bytes: &[u8]) -> bool {
     if bytes.len() < 4 {
         false
     } else {
-        let frame = Frame::new(bytes);
+        let frame = Frame::new_unchecked(bytes);
         frame.calculate_crc().to_le_bytes() == frame.crc_bytes()
     }
 }

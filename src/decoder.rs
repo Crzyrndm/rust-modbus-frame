@@ -58,7 +58,7 @@ impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
 impl<'a> From<WriteCoil<'a>> for Frame<'a> {
     fn from(command: WriteCoil<'_>) -> Frame<'_> {
         let bytes = command.bytes;
-        Frame::new(bytes)
+        Frame::new_unchecked(bytes)
     }
 }
 
@@ -115,7 +115,7 @@ impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
 impl<'a> From<WriteHoldingRegister<'a>> for Frame<'a> {
     fn from(command: WriteHoldingRegister<'_>) -> Frame<'_> {
         let bytes = command.bytes;
-        Frame::new(bytes)
+        Frame::new_unchecked(bytes)
     }
 }
 
@@ -215,7 +215,7 @@ pub mod command {
     impl<'a> From<ReadCoils<'a>> for Frame<'a> {
         fn from(command: ReadCoils<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -271,7 +271,7 @@ pub mod command {
     impl<'a> From<ReadDiscreteInputs<'a>> for Frame<'a> {
         fn from(command: ReadDiscreteInputs<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -327,7 +327,7 @@ pub mod command {
     impl<'a> From<ReadHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: ReadHoldingRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -383,7 +383,7 @@ pub mod command {
     impl<'a> From<ReadInputRegisters<'a>> for Frame<'a> {
         fn from(command: ReadInputRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -468,7 +468,7 @@ pub mod command {
     impl<'a> From<WriteMultipleCoils<'a>> for Frame<'a> {
         fn from(command: WriteMultipleCoils<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -541,7 +541,7 @@ pub mod command {
     impl<'a> From<WriteMultipleHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: WriteMultipleHoldingRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 }
@@ -663,7 +663,7 @@ pub mod response {
     impl<'a> From<ReadCoils<'a>> for Frame<'a> {
         fn from(command: ReadCoils<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -723,7 +723,7 @@ pub mod response {
     impl<'a> From<ReadDiscreteInputs<'a>> for Frame<'a> {
         fn from(command: ReadDiscreteInputs<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -787,7 +787,7 @@ pub mod response {
     impl<'a> From<ReadHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: ReadHoldingRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -851,7 +851,7 @@ pub mod response {
     impl<'a> From<ReadInputRegisters<'a>> for Frame<'a> {
         fn from(command: ReadInputRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -910,7 +910,7 @@ pub mod response {
     impl<'a> From<WriteMultipleCoils<'a>> for Frame<'a> {
         fn from(command: WriteMultipleCoils<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 
@@ -966,7 +966,7 @@ pub mod response {
     impl<'a> From<WriteMultipleHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: WriteMultipleHoldingRegisters<'_>) -> Frame<'_> {
             let bytes = command.bytes;
-            Frame::new(bytes)
+            Frame::new_unchecked(bytes)
         }
     }
 }

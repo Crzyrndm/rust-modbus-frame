@@ -126,7 +126,7 @@ impl<'b> Builder<'b, AddData> {
         let crc = calculate_crc16(&self.buffer[..self.idx]).to_le_bytes();
         self.buffer[self.idx] = crc[0];
         self.buffer[self.idx + 1] = crc[1];
-        Frame::new(&self.buffer[..self.idx + 2])
+        Frame::new_unchecked(&self.buffer[..self.idx + 2])
     }
 }
 
