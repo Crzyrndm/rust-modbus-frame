@@ -2,7 +2,15 @@
 
 use byteorder::ByteOrder;
 
-use crate::{frame::Frame, FixedLen, PacketLen};
+use crate::{frame::Frame, Error, FixedLen, Function, FunctionCode, PacketLen};
+
+fn try_from_bytes<'a, T>(bytes: &'a [u8]) -> crate::Result<T>
+where
+    T: 'a + PacketLen + FunctionCode + TryFrom<Frame<'a>, Error = crate::Error>,
+{
+    let frame = Frame::try_from(bytes)?;
+    T::try_from(frame)
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct WriteCoil<'a> {
@@ -33,25 +41,29 @@ impl FixedLen for WriteCoil<'_> {
     const LEN: u8 = 8;
 }
 
-impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
-    type Error = ();
+impl FunctionCode for WriteCoil<'_> {
+    const FUNCTION: Function = crate::function::WRITE_COIL;
+}
 
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        if value.len() == Self::minimum_len().into() {
-            // TODO: Validate coil value
-            Ok(Self::new(value))
-        } else {
-            Err(())
-        }
+impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
+    type Error = crate::Error;
+
+    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+        try_from_bytes(bytes)
     }
 }
 
 impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
-    type Error = ();
+    type Error = crate::Error;
 
     fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-        let bytes = frame.into_raw_bytes();
-        Self::try_from(bytes)
+        if frame.function() != Self::FUNCTION {
+            Err(Error::UnexpectedFunction)
+        } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+            Err(Error::DecodeInvalidLength)
+        } else {
+            Ok(Self::new(frame.into_raw_bytes()))
+        }
     }
 }
 
@@ -91,24 +103,29 @@ impl FixedLen for WriteHoldingRegister<'_> {
     const LEN: u8 = 8;
 }
 
-impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
-    type Error = ();
+impl FunctionCode for WriteHoldingRegister<'_> {
+    const FUNCTION: Function = crate::function::WRITE_HOLDING_REGISTER;
+}
 
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        if value.len() == Self::minimum_len().into() {
-            Ok(Self::new(value))
-        } else {
-            Err(())
-        }
+impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
+    type Error = crate::Error;
+
+    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+        try_from_bytes(bytes)
     }
 }
 
 impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
-    type Error = ();
+    type Error = crate::Error;
 
     fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-        let bytes = frame.into_raw_bytes();
-        Self::try_from(bytes)
+        if frame.function() != Self::FUNCTION {
+            Err(Error::UnexpectedFunction)
+        } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+            Err(Error::DecodeInvalidLength)
+        } else {
+            Ok(Self::new(frame.into_raw_bytes()))
+        }
     }
 }
 
@@ -125,7 +142,7 @@ pub mod command {
     use byteorder::ByteOrder;
 
     use crate::frame::Frame;
-    use crate::{FixedLen, PacketLen};
+    use crate::{Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
     #[derive(Debug, PartialEq, Clone, Copy)]
@@ -144,21 +161,21 @@ pub mod command {
         // all Ok types are returning at least three pointers (discriminant, slice start, slice len)
         // can put a bit of info in the error type with no change in size
         // e.g. which function code
-        type Error = ();
+        type Error = crate::Error;
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            match value[1] {
-                1 => ReadCoils::try_from(value).map(Self::ReadCoils),
-                2 => ReadDiscreteInputs::try_from(value).map(Self::ReadDiscreteInputs),
-                3 => ReadHoldingRegisters::try_from(value).map(Self::ReadHolsingRegisters),
-                4 => ReadInputRegisters::try_from(value).map(Self::ReadInputRegisters),
-                5 => WriteCoil::try_from(value).map(Self::WriteCoil),
-                6 => WriteHoldingRegister::try_from(value).map(Self::WriteHoldingRegister),
-                15 => WriteMultipleCoils::try_from(value).map(Self::WriteMultipleCoils),
-                16 => WriteMultipleHoldingRegisters::try_from(value)
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            match bytes[1] {
+                1 => ReadCoils::try_from(bytes).map(Self::ReadCoils),
+                2 => ReadDiscreteInputs::try_from(bytes).map(Self::ReadDiscreteInputs),
+                3 => ReadHoldingRegisters::try_from(bytes).map(Self::ReadHolsingRegisters),
+                4 => ReadInputRegisters::try_from(bytes).map(Self::ReadInputRegisters),
+                5 => WriteCoil::try_from(bytes).map(Self::WriteCoil),
+                6 => WriteHoldingRegister::try_from(bytes).map(Self::WriteHoldingRegister),
+                15 => WriteMultipleCoils::try_from(bytes).map(Self::WriteMultipleCoils),
+                16 => WriteMultipleHoldingRegisters::try_from(bytes)
                     .map(Self::WriteMultipleHoldingRegisters),
 
-                _ => Err(()),
+                _ => Err(Error::UnknownFunction),
             }
         }
     }
@@ -191,24 +208,29 @@ pub mod command {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
-        type Error = ();
+    impl FunctionCode for ReadCoils<'_> {
+        const FUNCTION: Function = crate::function::READ_COILS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadCoils<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -247,24 +269,29 @@ pub mod command {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
-        type Error = ();
+    impl FunctionCode for ReadDiscreteInputs<'_> {
+        const FUNCTION: Function = crate::function::READ_INPUTS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadDiscreteInputs<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -303,24 +330,29 @@ pub mod command {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for ReadHoldingRegisters<'_> {
+        const FUNCTION: Function = crate::function::READ_HOLDING_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadHoldingRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -359,24 +391,29 @@ pub mod command {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for ReadInputRegisters<'_> {
+        const FUNCTION: Function = crate::function::READ_INPUT_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadInputRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -387,8 +424,8 @@ pub mod command {
         }
     }
 
-    use super::WriteCoil;
     use super::WriteHoldingRegister;
+    use super::{try_from_bytes, WriteCoil};
 
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub struct WriteMultipleCoils<'a> {
@@ -444,24 +481,29 @@ pub mod command {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
-        type Error = ();
+    impl FunctionCode for WriteMultipleCoils<'_> {
+        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_COILS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for WriteMultipleCoils<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -517,24 +559,29 @@ pub mod command {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for WriteMultipleHoldingRegisters<'_> {
+        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_HOLDING_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for WriteMultipleHoldingRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -547,12 +594,13 @@ pub mod command {
 }
 
 pub mod response {
-    use bitvec::order::Lsb0;
-    use bitvec::order::Msb0;
+    use bitvec::order::{Lsb0, Msb0};
     use byteorder::ByteOrder;
 
-    use crate::frame::Frame;
-    use crate::{FixedLen, PacketLen};
+    use super::try_from_bytes;
+    pub use super::{WriteCoil, WriteHoldingRegister};
+
+    use crate::{frame::Frame, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
     #[derive(Debug, PartialEq, Clone, Copy)]
@@ -571,21 +619,21 @@ pub mod response {
         // all Ok types are returning at least three pointers (discriminant, slice start, slice len)
         // can put a bit of info in the error type with no change in size
         // e.g. which function code
-        type Error = ();
+        type Error = crate::Error;
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            match value[1] {
-                1 => ReadCoils::try_from(value).map(Self::ReadCoils),
-                2 => ReadDiscreteInputs::try_from(value).map(Self::ReadDiscreteInputs),
-                3 => ReadHoldingRegisters::try_from(value).map(Self::ReadHolsingRegisters),
-                4 => ReadInputRegisters::try_from(value).map(Self::ReadInputRegisters),
-                5 => WriteCoil::try_from(value).map(Self::WriteCoil),
-                6 => WriteHoldingRegister::try_from(value).map(Self::WriteHoldingRegister),
-                15 => WriteMultipleCoils::try_from(value).map(Self::WriteMultipleCoils),
-                16 => WriteMultipleHoldingRegisters::try_from(value)
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            match bytes[1] {
+                1 => ReadCoils::try_from(bytes).map(Self::ReadCoils),
+                2 => ReadDiscreteInputs::try_from(bytes).map(Self::ReadDiscreteInputs),
+                3 => ReadHoldingRegisters::try_from(bytes).map(Self::ReadHolsingRegisters),
+                4 => ReadInputRegisters::try_from(bytes).map(Self::ReadInputRegisters),
+                5 => WriteCoil::try_from(bytes).map(Self::WriteCoil),
+                6 => WriteHoldingRegister::try_from(bytes).map(Self::WriteHoldingRegister),
+                15 => WriteMultipleCoils::try_from(bytes).map(Self::WriteMultipleCoils),
+                16 => WriteMultipleHoldingRegisters::try_from(bytes)
                     .map(Self::WriteMultipleHoldingRegisters),
 
-                _ => Err(()),
+                _ => Err(Error::UnknownFunction),
             }
         }
     }
@@ -634,15 +682,15 @@ pub mod response {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
-        type Error = ();
+    impl FunctionCode for ReadCoils<'_> {
+        const FUNCTION: Function = crate::function::READ_COILS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadCoils<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
@@ -652,11 +700,16 @@ pub mod response {
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadCoils<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -699,24 +752,29 @@ pub mod response {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
-        type Error = ();
+    impl FunctionCode for ReadDiscreteInputs<'_> {
+        const FUNCTION: Function = crate::function::READ_INPUTS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadDiscreteInputs<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -763,24 +821,29 @@ pub mod response {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for ReadHoldingRegisters<'_> {
+        const FUNCTION: Function = crate::function::READ_HOLDING_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadHoldingRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadHoldingRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -827,24 +890,29 @@ pub mod response {
         }
     }
 
-    impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for ReadInputRegisters<'_> {
+        const FUNCTION: Function = crate::function::READ_INPUT_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() >= Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for ReadInputRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for ReadInputRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -854,9 +922,6 @@ pub mod response {
             Frame::new_unchecked(bytes)
         }
     }
-
-    use super::WriteCoil;
-    use super::WriteHoldingRegister;
 
     #[derive(Debug, PartialEq, Clone, Copy)]
     pub struct WriteMultipleCoils<'a> {
@@ -886,24 +951,29 @@ pub mod response {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
-        type Error = ();
+    impl FunctionCode for WriteMultipleCoils<'_> {
+        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_COILS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for WriteMultipleCoils<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for WriteMultipleCoils<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 
@@ -942,24 +1012,29 @@ pub mod response {
         const LEN: u8 = 8;
     }
 
-    impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
-        type Error = ();
+    impl FunctionCode for WriteMultipleHoldingRegisters<'_> {
+        const FUNCTION: Function = crate::function::WRITE_MULTIPLE_HOLDING_REGISTERS;
+    }
 
-        fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-            if value.len() == Self::minimum_len().into() {
-                Ok(Self::new(value))
-            } else {
-                Err(())
-            }
+    impl<'a> TryFrom<&'a [u8]> for WriteMultipleHoldingRegisters<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            try_from_bytes(bytes)
         }
     }
 
     impl<'a> TryFrom<Frame<'a>> for WriteMultipleHoldingRegisters<'a> {
-        type Error = ();
+        type Error = crate::Error;
 
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-            let bytes = frame.into_raw_bytes();
-            Self::try_from(bytes)
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::new(frame.into_raw_bytes()))
+            }
         }
     }
 

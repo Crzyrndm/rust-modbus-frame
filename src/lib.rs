@@ -31,6 +31,8 @@
 //! assert_eq!(frame.payload(), [0, 3]);
 //! ```
 
+#![cfg_attr(not(test), no_std)]
+
 pub mod builder;
 pub mod decoder;
 pub mod exception;
@@ -58,19 +60,31 @@ pub fn verify_crc16(bytes: &[u8]) -> bool {
 pub trait PacketLen {
     fn packet_len(&self) -> u8;
     fn minimum_len() -> u8;
+    /// true if the byte length is valid for this type
+    fn is_valid_len(len: usize) -> bool {
+        len >= Self::minimum_len().into() && len <= 252
+    }
 }
 
 pub trait FixedLen: PacketLen {
     const LEN: u8;
 }
 
+pub trait FunctionCode {
+    const FUNCTION: Function;
+}
+
 impl<T: FixedLen> PacketLen for T {
     fn packet_len(&self) -> u8 {
-        Self::LEN
+        Self::minimum_len()
     }
 
     fn minimum_len() -> u8 {
         Self::LEN
+    }
+
+    fn is_valid_len(len: usize) -> bool {
+        len == Self::minimum_len().into()
     }
 }
 
@@ -83,9 +97,13 @@ pub enum Error {
     InvalidCrc,
     /// Decoding failed because the function code was unknown
     UnknownFunction,
+    /// The expected function code was not what was found
+    UnexpectedFunction,
     /// message size is invalid for the function code
     DecodeInvalidLength,
 }
+
+type Result<T, E = Error> = core::result::Result<T, E>;
 
 // std::error::Error trait obviously isn't available in no_std
 // whould this implement any other error traits?
