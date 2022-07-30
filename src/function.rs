@@ -1,5 +1,9 @@
 //! function codes as documented by https://en.wikipedia.org/wiki/Modbus#Available_function/command_codes
-use crate::Function;
+
+/// function code specifies how a device processes the frame
+/// top bit is set to indicate an exception response so valid range is 0-127
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Function(pub u8);
 
 /// Request:
 ///     Address of first coil to read (16-bit)

@@ -1,6 +1,8 @@
 //! Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 
-pub use crate::Exception;
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Exception(pub u8);
+
 /// Function code received in the query is not recognized or allowed by slave
 pub const ILLEGAL_FUNCTION: Exception = Exception(1);
 /// Data address of some or all the required entities are not allowed or do not exist in slave
