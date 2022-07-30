@@ -741,10 +741,15 @@ pub mod response {
         }
 
         pub fn iter_inputs(&'_ self) -> impl Iterator<Item = bool> + '_ {
-            self.frame.payload()[1..]
-                .chunks(2)
-                .map(byteorder::BigEndian::read_u16)
-                .flat_map(|val| bitvec::array::BitArray::<[u16; 1], Msb0>::new([val]).into_iter())
+            let data = {
+                // header(2) + location(2) + count(2) + payload_count(1)
+                &self.frame.payload()[1..]
+            };
+            // the byte ordering for the response here is odd in that it is the Least Significant Bits that are the leftmost
+            // this makes the mex appear to zigzag e.g. [CD, 6B, B2, 7F] has the following bit offsets [(7-0), (15-8), (23-16), (30-24)]
+            bitvec::slice::BitSlice::<u8, Lsb0>::from_slice(data)
+                .iter()
+                .map(|bit| *bit)
         }
     }
 
@@ -1037,7 +1042,7 @@ pub mod response {
 
 #[cfg(test)]
 mod tests {
-    use crate::function;
+    use crate::{decoder::response::CommonResponses, function};
 
     use super::{command::CommonCommands, *};
 
@@ -1307,7 +1312,7 @@ mod tests {
     }
 
     #[test]
-    fn response_read_multiple_coils() {
+    fn response_read_coils() {
         let mut buf = [0; 256];
         // 0xB, 0x1, 0x4, 0xCD, 0x6B, 0xB2, 0x7F, 0x2B, 0xE1
         let frame = crate::builder::build_frame(&mut buf)
@@ -1333,5 +1338,246 @@ mod tests {
             // Note that the last false bit may be padding (always zeroes) or part of the message. Need to know what the request was to tell
             assert_eq!(coils, desired);
         }
+    }
+
+    #[test]
+    fn response_read_discrete_inputs() {
+        let mut buf = [0; 256];
+
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0xB)
+            .function(function::READ_DISCRETE_INPUTS)
+            .byte(4)
+            .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+            .finalise();
+        let responses = [
+            response::ReadDiscreteInputs::try_from(frame.raw_bytes()).unwrap(),
+            response::ReadDiscreteInputs::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.payload_len(), 4);
+            let coils = response.iter_inputs().collect::<Vec<_>>();
+            let desired = [
+                true, false, true, true, false, false, true, true, // 0xCD
+                true, true, false, true, false, true, true, false, // 0x6B
+                false, true, false, false, true, true, false, true, // 0xB2
+                true, true, true, true, true, true, true, false, // 0x7F
+            ];
+            // Note that the last false bit may be padding (always zeroes) or part of the message. Need to know what the request was to tell
+            assert_eq!(coils, desired);
+        }
+    }
+
+    #[test]
+    fn response_read_holding_registers() {
+        let mut buf = [0; 256];
+        // 11 03 06 AE41 5652 4340 49AD
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_HOLDING_REGISTERS)
+            .byte(6)
+            .registers([0xAE41, 0x5652, 0x4340])
+            .finalise();
+
+        let responses = [
+            response::ReadHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
+            response::ReadHoldingRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.payload_len(), 6);
+            assert_eq!(
+                response.iter_registers().collect::<Vec<_>>(),
+                [0xAE41, 0x5652, 0x4340]
+            );
+        }
+    }
+
+    #[test]
+    fn response_read_input_registers() {
+        let mut buf = [0; 256];
+        // 11 03 06 AE41 5652 4340 49AD
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_INPUT_REGISTERS)
+            .byte(6)
+            .registers([0xAE41, 0x5652, 0x4340])
+            .finalise();
+
+        let responses = [
+            response::ReadInputRegisters::try_from(frame.raw_bytes()).unwrap(),
+            response::ReadInputRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.payload_len(), 6);
+            assert_eq!(
+                response.iter_registers().collect::<Vec<_>>(),
+                [0xAE41, 0x5652, 0x4340]
+            );
+        }
+    }
+
+    #[test]
+    fn response_write_coil() {
+        let mut buf = [0; 256];
+        // 11 05 00AC FF00 4E8B
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_COIL)
+            .registers([0xAC, COIL_ON])
+            .finalise();
+
+        let responses = [
+            response::WriteCoil::try_from(frame.raw_bytes()).unwrap(),
+            response::WriteCoil::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.index(), 0xAC);
+            assert!(response.is_on());
+        }
+    }
+
+    #[test]
+    fn response_write_holding_register() {
+        let mut buf = [0; 256];
+        // 11 06 0001 0003 9A9B
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_HOLDING_REGISTER)
+            .registers([1, 3])
+            .finalise();
+
+        let responses = [
+            response::WriteHoldingRegister::try_from(frame.raw_bytes()).unwrap(),
+            response::WriteHoldingRegister::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.index(), 1);
+            assert_eq!(response.value(), 3);
+        }
+    }
+
+    #[test]
+    fn response_write_multiple_coils() {
+        let mut buf = [0; 256];
+        // 0xB, 0xF, 0x0, 0x1B, 0x0, 0x9, 0x2, 0x4D, 0x1, 0x6C, 0xA7
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0xB)
+            .function(function::WRITE_MULTIPLE_COILS)
+            .registers([27, 9])
+            .finalise();
+
+        let responses = [
+            response::WriteMultipleCoils::try_from(frame.raw_bytes()).unwrap(),
+            response::WriteMultipleCoils::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.start_index(), 27);
+            assert_eq!(response.register_count(), 9);
+        }
+    }
+
+    #[test]
+    fn response_write_multiple_holding_registers() {
+        let mut buf = [0; 256];
+        // 0x11, 0x10, 0x0, 0x01, 0x00, 0x02, 0x04, 0x00, 0x0A, 0x01, 0x02, 0xC6, 0xF0
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_MULTIPLE_HOLDING_REGISTERS)
+            .registers([1, 2])
+            .finalise();
+
+        let responses = [
+            response::WriteMultipleHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
+            response::WriteMultipleHoldingRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for response in responses {
+            assert_eq!(response.start_index(), 1);
+            assert_eq!(response.register_count(), 2);
+        }
+    }
+
+    #[test]
+    fn response_decode() {
+        let mut buf = [0; 256];
+        // for now, just copy the builder sequences from the other tests
+        let responses = [
+            crate::builder::build_frame(&mut buf)
+                .for_address(0xB)
+                .function(function::READ_COILS)
+                .byte(4)
+                .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0xB)
+                .function(function::READ_DISCRETE_INPUTS)
+                .byte(4)
+                .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_HOLDING_REGISTERS)
+                .byte(6)
+                .registers([0xAE41, 0x5652, 0x4340])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_INPUT_REGISTERS)
+                .byte(6)
+                .registers([0xAE41, 0x5652, 0x4340])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_COIL)
+                .registers([0xAC, COIL_ON])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_HOLDING_REGISTER)
+                .registers([1, 3])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0xB)
+                .function(function::WRITE_MULTIPLE_COILS)
+                .registers([27, 9])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_MULTIPLE_HOLDING_REGISTERS)
+                .registers([1, 2])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+        ];
+        let result = responses
+            .into_iter()
+            .map(|bytes| {
+                let byte = CommonResponses::try_from(bytes.as_slice()).unwrap();
+                let frame = Frame::new_unchecked(&bytes);
+                let frame = CommonResponses::try_from(frame).unwrap();
+                [format!("{:?}", byte), format!("{:?}", frame)]
+            })
+            .collect::<Vec<_>>();
+        dbg!(result);
     }
 }
