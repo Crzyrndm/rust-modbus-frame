@@ -1106,20 +1106,26 @@ mod tests {
             .bytes([0x4D, 0x01])
             .finalise();
 
-        let command = command::WriteMultipleCoils::try_from(frame.clone()).unwrap();
-        assert_eq!(command.start_index(), 27);
-        assert_eq!(command.coil_count(), 9);
-        assert_eq!(command.payload_len(), 2);
-        let coils = command.iter_coils().collect::<Vec<_>>();
-        let desired = [
-            true, false, true, true, false, false, true, false, // 0x4D
-            true,  // 0x01
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|x| (command.start_index() + x.0 as u16, x.1))
-        .collect::<Vec<_>>();
-        assert_eq!(coils, desired);
+        let commands = [
+            command::WriteMultipleCoils::try_from(frame.raw_bytes()).unwrap(),
+            command::WriteMultipleCoils::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 27);
+            assert_eq!(command.coil_count(), 9);
+            assert_eq!(command.payload_len(), 2);
+            let coils = command.iter_coils().collect::<Vec<_>>();
+            let desired = [
+                true, false, true, true, false, false, true, false, // 0x4D
+                true,  // 0x01
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|x| (command.start_index() + x.0 as u16, x.1))
+            .collect::<Vec<_>>();
+            assert_eq!(coils, desired);
+        }
     }
 
     #[test]
@@ -1132,16 +1138,22 @@ mod tests {
             .byte(4)
             .bytes([0xCD, 0x6B, 0xB2, 0x7F])
             .finalise();
-        let command = response::ReadCoils::try_from(frame.clone()).unwrap();
-        assert_eq!(command.payload_len(), 4);
-        let coils = command.iter_coils().collect::<Vec<_>>();
-        let desired = [
-            true, false, true, true, false, false, true, true, // 0xCD
-            true, true, false, true, false, true, true, false, // 0x6B
-            false, true, false, false, true, true, false, true, // 0xB2
-            true, true, true, true, true, true, true, false, // 0x7F
+        let responses = [
+            response::ReadCoils::try_from(frame.raw_bytes()).unwrap(),
+            response::ReadCoils::try_from(frame.clone()).unwrap(),
         ];
-        // Note that the last false bit may be padding (always zeroes) or part of the message. Need to know what the request was to tell
-        assert_eq!(coils, desired);
+
+        for response in responses {
+            assert_eq!(response.payload_len(), 4);
+            let coils = response.iter_coils().collect::<Vec<_>>();
+            let desired = [
+                true, false, true, true, false, false, true, true, // 0xCD
+                true, true, false, true, false, true, true, false, // 0x6B
+                false, true, false, false, true, true, false, true, // 0xB2
+                true, true, true, true, true, true, true, false, // 0x7F
+            ];
+            // Note that the last false bit may be padding (always zeroes) or part of the message. Need to know what the request was to tell
+            assert_eq!(coils, desired);
+        }
     }
 }
