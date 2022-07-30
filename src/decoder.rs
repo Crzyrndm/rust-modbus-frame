@@ -90,6 +90,14 @@ impl<'a> WriteHoldingRegister<'a> {
         }
     }
 
+    pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+        Self { frame }
+    }
+
+    pub fn as_frame(&self) -> Frame<'a> {
+        self.frame.clone()
+    }
+
     pub fn index(&self) -> u16 {
         byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
     }
@@ -216,6 +224,14 @@ pub mod command {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn start_index(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
@@ -272,6 +288,14 @@ pub mod command {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn start_index(&self) -> u16 {
@@ -332,6 +356,14 @@ pub mod command {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn start_index(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
@@ -390,6 +422,14 @@ pub mod command {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn start_index(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
@@ -446,6 +486,14 @@ pub mod command {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn start_index(&self) -> u16 {
@@ -529,6 +577,14 @@ pub mod command {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -672,6 +728,14 @@ pub mod response {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn payload_len(&self) -> u8 {
             self.frame.payload()[0]
         }
@@ -742,6 +806,14 @@ pub mod response {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -816,6 +888,14 @@ pub mod response {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn payload_len(&self) -> u8 {
             self.frame.payload()[0]
         }
@@ -880,6 +960,14 @@ pub mod response {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn payload_len(&self) -> u8 {
@@ -948,6 +1036,14 @@ pub mod response {
             }
         }
 
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
+        }
+
         pub fn start_index(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
@@ -1004,6 +1100,14 @@ pub mod response {
             Self {
                 frame: Frame::new_unchecked(bytes),
             }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame.clone()
         }
 
         pub fn start_index(&self) -> u16 {
