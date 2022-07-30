@@ -20,6 +20,7 @@ pub struct AddData;
 
 /// building frames conveniently
 /// ```
+/// use modbus_frames as modbus;
 /// use modbus::Function;
 /// use modbus::builder;
 ///
