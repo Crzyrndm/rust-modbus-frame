@@ -11,28 +11,31 @@ where
     let frame = Frame::try_from(bytes)?;
     T::try_from(frame)
 }
+/// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
+/// All other values are invalid
+pub const COIL_ON: u16 = 0xFF00;
+/// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
+/// All other values are invalid
+pub const COIL_OFF: u16 = 0x0000;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct WriteCoil<'a> {
-    bytes: &'a [u8],
+    frame: Frame<'a>,
 }
 
 impl<'a> WriteCoil<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
-        debug_assert!(
-            // 4 bytes for RTU, 4 bytes of payload
-            bytes.len() == 4 + 4,
-            "length validation should be done before constructing an instance"
-        );
-        Self { bytes }
+    pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+        Self {
+            frame: Frame::new_unchecked(bytes),
+        }
     }
 
-    pub fn start_index(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.bytes[2..])
+    pub fn index(&self) -> u16 {
+        byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
     }
 
-    pub fn register_count(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.bytes[4..])
+    pub fn is_on(&self) -> bool {
+        byteorder::BigEndian::read_u16(&self.frame.payload()[2..]) == COIL_ON
     }
 }
 
@@ -62,39 +65,35 @@ impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
         } else if !Self::is_valid_len(frame.raw_bytes().len()) {
             Err(Error::DecodeInvalidLength)
         } else {
-            Ok(Self::new(frame.into_raw_bytes()))
+            Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
         }
     }
 }
 
 impl<'a> From<WriteCoil<'a>> for Frame<'a> {
     fn from(command: WriteCoil<'_>) -> Frame<'_> {
-        let bytes = command.bytes;
-        Frame::new_unchecked(bytes)
+        command.frame
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct WriteHoldingRegister<'a> {
-    bytes: &'a [u8],
+    frame: Frame<'a>,
 }
 
 impl<'a> WriteHoldingRegister<'a> {
-    pub fn new(bytes: &'a [u8]) -> Self {
-        debug_assert!(
-            // 4 bytes for RTU, 4 bytes of payload
-            bytes.len() == 4 + 4,
-            "length validation should be done before constructing an instance"
-        );
-        Self { bytes }
+    pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+        Self {
+            frame: Frame::new_unchecked(bytes),
+        }
     }
 
-    pub fn start_index(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.bytes[2..])
+    pub fn index(&self) -> u16 {
+        byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
     }
 
-    pub fn register_count(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.bytes[4..])
+    pub fn value(&self) -> u16 {
+        byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
     }
 }
 
@@ -124,15 +123,14 @@ impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
         } else if !Self::is_valid_len(frame.raw_bytes().len()) {
             Err(Error::DecodeInvalidLength)
         } else {
-            Ok(Self::new(frame.into_raw_bytes()))
+            Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
         }
     }
 }
 
 impl<'a> From<WriteHoldingRegister<'a>> for Frame<'a> {
     fn from(command: WriteHoldingRegister<'_>) -> Frame<'_> {
-        let bytes = command.bytes;
-        Frame::new_unchecked(bytes)
+        command.frame
     }
 }
 
@@ -144,8 +142,11 @@ pub mod command {
     use crate::frame::Frame;
     use crate::{function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
+    use super::try_from_bytes;
+    pub use super::{WriteCoil, WriteHoldingRegister};
+
     /// The default responses for a decode type
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub enum CommonCommands<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -175,7 +176,7 @@ pub mod command {
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
             match frame.function() {
                 function::READ_COILS => ReadCoils::try_from(frame).map(Self::ReadCoils),
-                function::READ_INPUTS => {
+                function::READ_DISCRETE_INPUTS => {
                     ReadDiscreteInputs::try_from(frame).map(Self::ReadDiscreteInputs)
                 }
                 function::READ_HOLDING_REGISTERS => {
@@ -201,27 +202,24 @@ pub mod command {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadCoils<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadCoils<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn coil_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -250,39 +248,35 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadCoils<'a>> for Frame<'a> {
         fn from(command: ReadCoils<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadDiscreteInputs<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadDiscreteInputs<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn input_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -291,7 +285,7 @@ pub mod command {
     }
 
     impl FunctionCode for ReadDiscreteInputs<'_> {
-        const FUNCTION: Function = function::READ_INPUTS;
+        const FUNCTION: Function = function::READ_DISCRETE_INPUTS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
@@ -311,39 +305,35 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadDiscreteInputs<'a>> for Frame<'a> {
         fn from(command: ReadDiscreteInputs<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadHoldingRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadHoldingRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn register_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -372,39 +362,35 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: ReadHoldingRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadInputRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadInputRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn register_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -433,53 +419,45 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadInputRegisters<'a>> for Frame<'a> {
         fn from(command: ReadInputRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    use super::WriteHoldingRegister;
-    use super::{try_from_bytes, WriteCoil};
-
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct WriteMultipleCoils<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> WriteMultipleCoils<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                bytes.len() >= Self::minimum_len().into(),
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
-        }
-
-        pub fn payload_len(&self) -> u8 {
-            self.bytes[6]
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn coil_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
+        }
+
+        pub fn payload_len(&self) -> u8 {
+            self.frame.payload()[4]
         }
 
         pub fn iter_coils(&'_ self) -> impl Iterator<Item = (u16, bool)> + '_ {
             let data = {
-                // header(2) + location(2) + count(2) + payload_count(1)
-                let start_idx = 7;
-                let end_idx = self.bytes.len() - 2;
-                &self.bytes[start_idx..end_idx]
+                // location(2) + count(2) + payload_count(1)
+                &self.frame.payload()[5..]
             };
 
             // iteration order is from right to left (least significant first)
@@ -523,48 +501,44 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<WriteMultipleCoils<'a>> for Frame<'a> {
         fn from(command: WriteMultipleCoils<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct WriteMultipleHoldingRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> WriteMultipleHoldingRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn payload_len(&self) -> u8 {
-            self.bytes[6]
+            self.frame.payload()[4]
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn register_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
 
         pub fn iter_registers(&'_ self) -> impl Iterator<Item = u16> + '_ {
-            self.bytes[3..]
-                .windows(2)
+            self.frame.payload()[5..]
+                .chunks(2)
                 .map(byteorder::BigEndian::read_u16)
         }
     }
@@ -601,15 +575,14 @@ pub mod command {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<WriteMultipleHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: WriteMultipleHoldingRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 }
@@ -624,7 +597,7 @@ pub mod response {
     use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub enum CommonResponses<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -654,7 +627,7 @@ pub mod response {
         fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
             match frame.function() {
                 function::READ_COILS => ReadCoils::try_from(frame).map(Self::ReadCoils),
-                function::READ_INPUTS => {
+                function::READ_DISCRETE_INPUTS => {
                     ReadDiscreteInputs::try_from(frame).map(Self::ReadDiscreteInputs)
                 }
                 function::READ_HOLDING_REGISTERS => {
@@ -680,31 +653,26 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadCoils<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadCoils<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() >= Self::minimum_len().into(),
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn payload_len(&self) -> u8 {
-            self.bytes[2]
+            self.frame.payload()[0]
         }
 
         pub fn iter_coils(&'_ self) -> impl Iterator<Item = bool> + '_ {
             let data = {
                 // header(2) + location(2) + count(2) + payload_count(1)
-                let start_idx = 3;
-                let end_idx = self.bytes.len() - 2;
-                &self.bytes[start_idx..end_idx]
+                &self.frame.payload()[1..]
             };
             // the byte ordering for the response here is odd in that it is the Least Significant Bits that are the leftmost
             // this makes the mex appear to zigzag e.g. [CD, 6B, B2, 7F] has the following bit offsets [(7-0), (15-8), (23-16), (30-24)]
@@ -736,11 +704,6 @@ pub mod response {
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
-    pub struct ReadDiscreteInputs<'a> {
-        bytes: &'a [u8],
-    }
-
     impl<'a> TryFrom<Frame<'a>> for ReadCoils<'a> {
         type Error = crate::Error;
 
@@ -750,35 +713,36 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadCoils<'a>> for Frame<'a> {
         fn from(command: ReadCoils<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
+    #[derive(Debug, PartialEq, Clone)]
+    pub struct ReadDiscreteInputs<'a> {
+        frame: Frame<'a>,
+    }
+
     impl<'a> ReadDiscreteInputs<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn payload_len(&self) -> u8 {
-            self.bytes[2]
+            self.frame.payload()[0]
         }
 
         pub fn iter_inputs(&'_ self) -> impl Iterator<Item = bool> + '_ {
-            self.bytes[3..]
-                .windows(2)
+            self.frame.payload()[1..]
+                .chunks(2)
                 .map(byteorder::BigEndian::read_u16)
                 .flat_map(|val| bitvec::array::BitArray::<[u16; 1], Msb0>::new([val]).into_iter())
         }
@@ -795,7 +759,7 @@ pub mod response {
     }
 
     impl FunctionCode for ReadDiscreteInputs<'_> {
-        const FUNCTION: Function = function::READ_INPUTS;
+        const FUNCTION: Function = function::READ_DISCRETE_INPUTS;
     }
 
     impl<'a> TryFrom<&'a [u8]> for ReadDiscreteInputs<'a> {
@@ -815,40 +779,36 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadDiscreteInputs<'a>> for Frame<'a> {
         fn from(command: ReadDiscreteInputs<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadHoldingRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadHoldingRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn payload_len(&self) -> u8 {
-            self.bytes[2]
+            self.frame.payload()[0]
         }
 
         pub fn iter_registers(&'_ self) -> impl Iterator<Item = u16> + '_ {
-            self.bytes[3..]
-                .windows(2)
+            self.frame.payload()[1..]
+                .chunks(2)
                 .map(byteorder::BigEndian::read_u16)
         }
     }
@@ -884,40 +844,36 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: ReadHoldingRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct ReadInputRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> ReadInputRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn payload_len(&self) -> u8 {
-            self.bytes[2]
+            self.frame.payload()[0]
         }
 
         pub fn iter_registers(&'_ self) -> impl Iterator<Item = u16> + '_ {
-            self.bytes[3..]
-                .windows(2)
+            self.frame.payload()[1..]
+                .chunks(2)
                 .map(byteorder::BigEndian::read_u16)
         }
     }
@@ -953,39 +909,35 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<ReadInputRegisters<'a>> for Frame<'a> {
         fn from(command: ReadInputRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct WriteMultipleCoils<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> WriteMultipleCoils<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn register_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -1014,39 +966,35 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<WriteMultipleCoils<'a>> for Frame<'a> {
         fn from(command: WriteMultipleCoils<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 
-    #[derive(Debug, PartialEq, Clone, Copy)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct WriteMultipleHoldingRegisters<'a> {
-        bytes: &'a [u8],
+        frame: Frame<'a>,
     }
 
     impl<'a> WriteMultipleHoldingRegisters<'a> {
-        pub fn new(bytes: &'a [u8]) -> Self {
-            debug_assert!(
-                // 4 bytes for RTU, 4 bytes of payload
-                bytes.len() == 4 + 4,
-                "length validation should be done before constructing an instance"
-            );
-            Self { bytes }
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
         }
 
         pub fn start_index(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[2..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
         pub fn register_count(&self) -> u16 {
-            byteorder::BigEndian::read_u16(&self.bytes[4..])
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
     }
 
@@ -1075,15 +1023,14 @@ pub mod response {
             } else if !Self::is_valid_len(frame.raw_bytes().len()) {
                 Err(Error::DecodeInvalidLength)
             } else {
-                Ok(Self::new(frame.into_raw_bytes()))
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
             }
         }
     }
 
     impl<'a> From<WriteMultipleHoldingRegisters<'a>> for Frame<'a> {
         fn from(command: WriteMultipleHoldingRegisters<'_>) -> Frame<'_> {
-            let bytes = command.bytes;
-            Frame::new_unchecked(bytes)
+            command.frame
         }
     }
 }
@@ -1092,7 +1039,133 @@ pub mod response {
 mod tests {
     use crate::function;
 
-    use super::*;
+    use super::{command::CommonCommands, *};
+
+    #[test]
+    fn command_read_coils() {
+        let mut buf = [0; 256];
+        // 11 01 0013 0025 0E84
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_COILS)
+            .registers([0x13, 0x25])
+            .finalise();
+
+        let commands = [
+            command::ReadCoils::try_from(frame.raw_bytes()).unwrap(),
+            command::ReadCoils::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 0x13);
+            assert_eq!(command.coil_count(), 0x25);
+        }
+    }
+
+    #[test]
+    fn command_read_discrete_inputs() {
+        let mut buf = [0; 256];
+        // 11 02 00C4 0016 BAA9
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_DISCRETE_INPUTS)
+            .registers([0xC4, 0x16])
+            .finalise();
+
+        let commands = [
+            command::ReadDiscreteInputs::try_from(frame.raw_bytes()).unwrap(),
+            command::ReadDiscreteInputs::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 0xC4);
+            assert_eq!(command.input_count(), 0x16);
+        }
+    }
+
+    #[test]
+    fn command_read_holding_registers() {
+        let mut buf = [0; 256];
+        // 11 03 006B 0003 7687
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_HOLDING_REGISTERS)
+            .registers([0x6B, 3])
+            .finalise();
+
+        let commands = [
+            command::ReadHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
+            command::ReadHoldingRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 0x6B);
+            assert_eq!(command.register_count(), 3);
+        }
+    }
+
+    #[test]
+    fn command_read_input_registers() {
+        let mut buf = [0; 256];
+        // 11 04 0008 0001 B298
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::READ_INPUT_REGISTERS)
+            .registers([8, 1])
+            .finalise();
+
+        let commands = [
+            command::ReadInputRegisters::try_from(frame.raw_bytes()).unwrap(),
+            command::ReadInputRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 8);
+            assert_eq!(command.register_count(), 1);
+        }
+    }
+
+    #[test]
+    fn command_write_coil() {
+        let mut buf = [0; 256];
+        // 11 05 00AC FF00 4E8B
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_COIL)
+            .registers([0xAC, COIL_ON])
+            .finalise();
+
+        let commands = [
+            command::WriteCoil::try_from(frame.raw_bytes()).unwrap(),
+            command::WriteCoil::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.index(), 0xAC);
+            assert!(command.is_on());
+        }
+    }
+
+    #[test]
+    fn command_write_holding_register() {
+        let mut buf = [0; 256];
+        // 11 06 0001 0003 9A9B
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_HOLDING_REGISTER)
+            .registers([1, 3])
+            .finalise();
+
+        let commands = [
+            command::WriteHoldingRegister::try_from(frame.raw_bytes()).unwrap(),
+            command::WriteHoldingRegister::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.index(), 1);
+            assert_eq!(command.value(), 3);
+        }
+    }
 
     #[test]
     fn command_write_multiple_coils() {
@@ -1126,6 +1199,111 @@ mod tests {
             .collect::<Vec<_>>();
             assert_eq!(coils, desired);
         }
+    }
+
+    #[test]
+    fn command_write_multiple_holding_registers() {
+        let mut buf = [0; 256];
+        // 0x11, 0x10, 0x0, 0x01, 0x00, 0x02, 0x04, 0x00, 0x0A, 0x01, 0x02, 0xC6, 0xF0
+        let frame = crate::builder::build_frame(&mut buf)
+            .for_address(0x11)
+            .function(function::WRITE_MULTIPLE_HOLDING_REGISTERS)
+            .registers([1, 2])
+            .byte(4)
+            .registers([0xA, 0x0102])
+            .finalise();
+
+        let commands = [
+            command::WriteMultipleHoldingRegisters::try_from(frame.raw_bytes()).unwrap(),
+            command::WriteMultipleHoldingRegisters::try_from(frame.clone()).unwrap(),
+        ];
+
+        for command in commands {
+            assert_eq!(command.start_index(), 1);
+            assert_eq!(command.register_count(), 2);
+            assert_eq!(command.payload_len(), 4);
+            let registers = command.iter_registers().collect::<Vec<_>>();
+            let desired = [0xA, 0x0102];
+            assert_eq!(registers, desired);
+        }
+    }
+
+    #[test]
+    fn command_decode() {
+        let mut buf = [0; 256];
+        // for now, just copy the builder sequences from the other tests
+        let commands = [
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_COILS)
+                .registers([0x13, 0x25])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_DISCRETE_INPUTS)
+                .registers([0xC4, 0x16])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_HOLDING_REGISTERS)
+                .registers([0x6B, 3])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::READ_INPUT_REGISTERS)
+                .registers([8, 1])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_COIL)
+                .registers([0xAC, COIL_ON])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_HOLDING_REGISTER)
+                .registers([1, 3])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0xB)
+                .function(function::WRITE_MULTIPLE_COILS)
+                .registers([27, 9])
+                .byte(2)
+                .bytes([0x4D, 0x01])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+            crate::builder::build_frame(&mut buf)
+                .for_address(0x11)
+                .function(function::WRITE_MULTIPLE_HOLDING_REGISTERS)
+                .registers([1, 2])
+                .byte(4)
+                .registers([0xA, 0x0102])
+                .finalise()
+                .raw_bytes()
+                .to_vec(),
+        ];
+        let result = commands
+            .into_iter()
+            .map(|bytes| {
+                let byte = CommonCommands::try_from(bytes.as_slice()).unwrap();
+                let frame = Frame::new_unchecked(&bytes);
+                let frame = CommonCommands::try_from(frame).unwrap();
+                [format!("{:?}", byte), format!("{:?}", frame)]
+            })
+            .collect::<Vec<_>>();
+        dbg!(result);
     }
 
     #[test]
