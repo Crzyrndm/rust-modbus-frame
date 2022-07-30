@@ -20,9 +20,7 @@ pub struct AddData;
 
 /// building frames conveniently
 /// ```
-/// use modbus_frames as modbus;
-/// use modbus::Function;
-/// use modbus::builder;
+/// use modbus_frames::{builder, Function};
 ///
 /// let mut buff = [0u8; 20];
 /// let frame = builder::build_frame(&mut buff)
