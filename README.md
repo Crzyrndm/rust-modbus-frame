@@ -11,8 +11,24 @@ Takes in a slice of bytes, does basic validation (length/crc) then passes to the
 Decoder returns an enum (e.g. ReadHoldingRegisters(address, func, num_regs, &[regs], crc)) which the application can then act upon
 Decoding doesn't require any copies to be made. Only references into the byte array
 
+A basic command (for the sersor receiving commands) and response (for the central unit receiving responses) decoder are included.
+There is nothing particularly special about these decoders, a custom decoder can be written with very little fuss
+
+#### Decoding Commands
+
 ```rust
-// TODO: decode example
+
+use modbus_frames::decoder::command::CommonCommands;
+let decoded = CommonCommands::try_from(command_frame).unwrap();
+assert!(matches!(decoded, CommonCommands::ReadCoils(_)));
+```
+
+#### Decoding Responses
+
+```rust
+use modbus_frames::decoder::response::CommonResponses;
+let decoded = CommonResponses::try_from(response_frame).unwrap();
+assert!(matches!(decoded, CommonResponses::ReadCoils(_)));
 ```
 
 ### Encode

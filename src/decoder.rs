@@ -156,6 +156,17 @@ pub mod command {
     pub use super::{WriteCoil, WriteHoldingRegister};
 
     /// The default responses for a decode type
+    /// ```
+    /// use modbus_frames::{builder, function, decoder::command::CommonCommands};
+    /// # let mut buf = [0; 256];
+    /// let command_frame = builder::build_frame(&mut buf)
+    ///                        .for_address(0x11)
+    ///                        .function(function::READ_COILS)
+    ///                        .registers([0x13, 0x25])
+    ///                        .finalise();
+    /// let decoded = CommonCommands::try_from(command_frame).unwrap();
+    /// assert!(matches!(decoded, CommonCommands::ReadCoils(_)));
+    /// ```
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CommonCommands<'a> {
         ReadCoils(ReadCoils<'a>),
@@ -660,6 +671,18 @@ pub mod response {
     use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
+    /// ```
+    /// use modbus_frames::{builder, function, decoder::response::CommonResponses};
+    /// # let mut buf = [0; 256];
+    /// let response_frame = builder::build_frame(&mut buf)
+    ///            .for_address(0xB)
+    ///            .function(function::READ_COILS)
+    ///            .byte(4)
+    ///            .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+    ///            .finalise();
+    /// let decoded = CommonResponses::try_from(response_frame).unwrap();
+    /// assert!(matches!(decoded, CommonResponses::ReadCoils(_)));
+    /// ```
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum CommonResponses<'a> {
         ReadCoils(ReadCoils<'a>),

@@ -9,8 +9,39 @@
 //! Decoder returns an enum (e.g. ReadHoldingRegisters(address, func, num_regs, &[regs], crc)) which the application can then act upon
 //! Decoding doesn't require any copies to be made. Only references into the byte array
 //!
-//! ```rust
-//! // TODO: decode example
+//! A basic command (for the sersor receiving commands) and response (for the central unit receiving responses) decoder are included.
+//! There is nothing particularly special about these decoders, a custom decoder can be written with very little fuss
+//!
+//! ### Decoding Commands
+//!
+//! ```
+//! # use modbus_frames::{builder, function};
+//! # let mut buf = [0; 256];
+//! # let command_frame = builder::build_frame(&mut buf)
+//! #                       .for_address(0x11)
+//! #                       .function(function::READ_COILS)
+//! #                       .registers([0x13, 0x25])
+//! #                       .finalise();
+//!
+//! use modbus_frames::decoder::command::CommonCommands;
+//! let decoded = CommonCommands::try_from(command_frame).unwrap();
+//! assert!(matches!(decoded, CommonCommands::ReadCoils(_)));
+//! ```
+//!
+//! ### Decoding Responses
+//!
+//! ```
+//! # use modbus_frames::{builder, function};
+//! # let mut buf = [0; 256];
+//! # let response_frame = builder::build_frame(&mut buf)
+//! #           .for_address(0xB)
+//! #           .function(function::READ_COILS)
+//! #           .byte(4)
+//! #           .bytes([0xCD, 0x6B, 0xB2, 0x7F])
+//! #           .finalise();
+//! use modbus_frames::decoder::response::CommonResponses;
+//! let decoded = CommonResponses::try_from(response_frame).unwrap();
+//! assert!(matches!(decoded, CommonResponses::ReadCoils(_)));
 //! ```
 //!
 //! ## Encode
