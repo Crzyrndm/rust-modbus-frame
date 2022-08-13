@@ -12,6 +12,7 @@ pub const COIL_ON: u16 = 0xFF00;
 pub const COIL_OFF: u16 = 0x0000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct WriteCoil<'a> {
     frame: Frame<'a>,
 }
@@ -79,6 +80,7 @@ impl<'a> From<WriteCoil<'a>> for Frame<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct WriteHoldingRegister<'a> {
     frame: Frame<'a>,
 }
@@ -168,6 +170,7 @@ pub mod command {
     /// assert!(matches!(decoded, CommonCommands::ReadCoils(_)));
     /// ```
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum CommonCommands<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -245,6 +248,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadCoils<'a> {
         frame: Frame<'a>,
     }
@@ -311,6 +315,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadDiscreteInputs<'a> {
         frame: Frame<'a>,
     }
@@ -377,6 +382,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -443,6 +449,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadInputRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -509,6 +516,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct WriteMultipleCoils<'a> {
         frame: Frame<'a>,
     }
@@ -600,6 +608,7 @@ pub mod command {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct WriteMultipleHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -705,6 +714,7 @@ pub mod response {
     /// assert!(matches!(decoded, CommonResponses::ReadCoils(_)));
     /// ```
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub enum CommonResponses<'a> {
         ReadCoils(ReadCoils<'a>),
         ReadDiscreteInputs(ReadDiscreteInputs<'a>),
@@ -782,6 +792,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadCoils<'a> {
         frame: Frame<'a>,
     }
@@ -862,6 +873,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadDiscreteInputs<'a> {
         frame: Frame<'a>,
     }
@@ -942,6 +954,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadHoldingRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -1016,6 +1029,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct ReadInputRegisters<'a> {
         frame: Frame<'a>,
     }
@@ -1090,6 +1104,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct WriteMultipleCoils<'a> {
         frame: Frame<'a>,
     }
@@ -1156,6 +1171,7 @@ pub mod response {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct WriteMultipleHoldingRegisters<'a> {
         frame: Frame<'a>,
     }

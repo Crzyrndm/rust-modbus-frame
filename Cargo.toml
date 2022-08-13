@@ -10,3 +10,5 @@ edition = "2021"
 crc16 = { version = "0.4", default-features = false }
 byteorder = { version = "1", default-features = false }
 bitvec = { version = "1", default-features = false }
+
+defmt = {version = "0.3", optional = true }
