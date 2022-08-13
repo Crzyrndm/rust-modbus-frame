@@ -179,6 +179,27 @@ pub mod command {
         WriteMultipleHoldingRegisters(WriteMultipleHoldingRegisters<'a>),
     }
 
+    impl<'a> CommonCommands<'a> {
+        pub fn as_frame(&self) -> Frame {
+            (*self).into()
+        }
+    }
+
+    impl<'a> From<CommonCommands<'a>> for Frame<'a> {
+        fn from(response: CommonCommands<'a>) -> Self {
+            match response {
+                CommonCommands::ReadCoils(res) => res.as_frame(),
+                CommonCommands::ReadDiscreteInputs(res) => res.as_frame(),
+                CommonCommands::ReadHolsingRegisters(res) => res.as_frame(),
+                CommonCommands::ReadInputRegisters(res) => res.as_frame(),
+                CommonCommands::WriteCoil(res) => res.as_frame(),
+                CommonCommands::WriteHoldingRegister(res) => res.as_frame(),
+                CommonCommands::WriteMultipleCoils(res) => res.as_frame(),
+                CommonCommands::WriteMultipleHoldingRegisters(res) => res.as_frame(),
+            }
+        }
+    }
+
     impl<'a> TryFrom<&'a [u8]> for CommonCommands<'a> {
         // all Ok types are returning at least three pointers (discriminant, slice start, slice len)
         // can put a bit of info in the error type with no change in size
@@ -693,6 +714,27 @@ pub mod response {
         WriteHoldingRegister(WriteHoldingRegister<'a>),
         WriteMultipleCoils(WriteMultipleCoils<'a>),
         WriteMultipleHoldingRegisters(WriteMultipleHoldingRegisters<'a>),
+    }
+
+    impl<'a> CommonResponses<'a> {
+        pub fn as_frame(&self) -> Frame {
+            (*self).into()
+        }
+    }
+
+    impl<'a> From<CommonResponses<'a>> for Frame<'a> {
+        fn from(response: CommonResponses<'a>) -> Self {
+            match response {
+                CommonResponses::ReadCoils(res) => res.as_frame(),
+                CommonResponses::ReadDiscreteInputs(res) => res.as_frame(),
+                CommonResponses::ReadHolsingRegisters(res) => res.as_frame(),
+                CommonResponses::ReadInputRegisters(res) => res.as_frame(),
+                CommonResponses::WriteCoil(res) => res.as_frame(),
+                CommonResponses::WriteHoldingRegister(res) => res.as_frame(),
+                CommonResponses::WriteMultipleCoils(res) => res.as_frame(),
+                CommonResponses::WriteMultipleHoldingRegisters(res) => res.as_frame(),
+            }
+        }
     }
 
     impl<'a> TryFrom<&'a [u8]> for CommonResponses<'a> {
