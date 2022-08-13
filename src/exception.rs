@@ -1,6 +1,7 @@
 //! Exception codes as documented by https://en.wikipedia.org/wiki/Modbus#Exception_responses
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Exception(pub u8);
 
 impl From<u8> for Exception {

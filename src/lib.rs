@@ -120,6 +120,7 @@ impl<T: FixedLen> PacketLen for T {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive] // new errors may be added later
 pub enum Error {
     /// Valid message lengths are 4-256 bytes

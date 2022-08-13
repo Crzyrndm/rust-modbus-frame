@@ -5,6 +5,7 @@ use crate::{calculate_crc16, frame::Frame, Exception, Function};
 
 /// Write modbus messages more conveniently and coherently using named operations.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Builder<'b, STATE> {
     buffer: &'b mut [u8],
     idx: usize,
