@@ -1,9 +1,5 @@
 //! Take bytes, turn into outputs
 
-use byteorder::ByteOrder;
-
-use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
-
 /// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
 /// All other values are invalid
 pub const COIL_ON: u16 = 0xFF00;
@@ -11,151 +7,13 @@ pub const COIL_ON: u16 = 0xFF00;
 /// All other values are invalid
 pub const COIL_OFF: u16 = 0x0000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct WriteCoil<'a> {
-    frame: Frame<'a>,
-}
-
-impl<'a> WriteCoil<'a> {
-    pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
-        Self {
-            frame: Frame::new_unchecked(bytes),
-        }
-    }
-
-    pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
-        Self { frame }
-    }
-
-    pub fn as_frame(&self) -> Frame<'a> {
-        self.frame
-    }
-
-    pub fn index(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
-    }
-
-    pub fn is_on(&self) -> bool {
-        byteorder::BigEndian::read_u16(&self.frame.payload()[2..]) == COIL_ON
-    }
-}
-
-impl FixedLen for WriteCoil<'_> {
-    // Modbus RTU + start location + coil true/false
-    const LEN: u8 = 8;
-}
-
-impl FunctionCode for WriteCoil<'_> {
-    const FUNCTION: Function = function::WRITE_COIL;
-}
-
-impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
-    type Error = crate::Error;
-
-    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-        let frame = Frame::try_from(bytes)?;
-        Self::try_from(frame)
-    }
-}
-
-impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
-    type Error = crate::Error;
-
-    fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-        if frame.function() != Self::FUNCTION {
-            Err(Error::UnexpectedFunction)
-        } else if !Self::is_valid_len(frame.raw_bytes().len()) {
-            Err(Error::DecodeInvalidLength)
-        } else {
-            Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
-        }
-    }
-}
-
-impl<'a> From<WriteCoil<'a>> for Frame<'a> {
-    fn from(command: WriteCoil<'_>) -> Frame<'_> {
-        command.frame
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct WriteHoldingRegister<'a> {
-    frame: Frame<'a>,
-}
-
-impl<'a> WriteHoldingRegister<'a> {
-    pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
-        Self {
-            frame: Frame::new_unchecked(bytes),
-        }
-    }
-
-    pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
-        Self { frame }
-    }
-
-    pub fn as_frame(&self) -> Frame<'a> {
-        self.frame
-    }
-
-    pub fn index(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
-    }
-
-    pub fn value(&self) -> u16 {
-        byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
-    }
-}
-
-impl FixedLen for WriteHoldingRegister<'_> {
-    // Modbus RTU + start location + register value
-    const LEN: u8 = 8;
-}
-
-impl FunctionCode for WriteHoldingRegister<'_> {
-    const FUNCTION: Function = function::WRITE_HOLDING_REGISTER;
-}
-
-impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
-    type Error = crate::Error;
-
-    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
-        let frame = Frame::try_from(bytes)?;
-        Self::try_from(frame)
-    }
-}
-
-impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
-    type Error = crate::Error;
-
-    fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
-        if frame.function() != Self::FUNCTION {
-            Err(Error::UnexpectedFunction)
-        } else if !Self::is_valid_len(frame.raw_bytes().len()) {
-            Err(Error::DecodeInvalidLength)
-        } else {
-            Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
-        }
-    }
-}
-
-impl<'a> From<WriteHoldingRegister<'a>> for Frame<'a> {
-    fn from(command: WriteHoldingRegister<'_>) -> Frame<'_> {
-        command.frame
-    }
-}
-
 pub mod command {
     use bitvec::macros::internal::funty::Fundamental;
     use bitvec::order::Msb0;
     use byteorder::ByteOrder;
 
     use crate::frame::Frame;
-    use crate::{function, Error, FixedLen, Function, FunctionCode, PacketLen};
-
-    pub use super::{WriteCoil, WriteHoldingRegister};
+    use crate::{builder, function, Error, Exception, FixedLen, Function, FunctionCode, PacketLen};
 
     /// The default responses for a decode type
     /// ```
@@ -275,6 +133,25 @@ pub mod command {
         pub fn coil_count(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
     }
 
     impl FixedLen for ReadCoils<'_> {
@@ -341,6 +218,25 @@ pub mod command {
 
         pub fn input_count(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
+        }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
         }
     }
 
@@ -409,6 +305,25 @@ pub mod command {
         pub fn register_count(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
     }
 
     impl FixedLen for ReadHoldingRegisters<'_> {
@@ -476,6 +391,25 @@ pub mod command {
         pub fn register_count(&self) -> u16 {
             byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
     }
 
     impl FixedLen for ReadInputRegisters<'_> {
@@ -511,6 +445,180 @@ pub mod command {
 
     impl<'a> From<ReadInputRegisters<'a>> for Frame<'a> {
         fn from(command: ReadInputRegisters<'_>) -> Frame<'_> {
+            command.frame
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    pub struct WriteCoil<'a> {
+        frame: Frame<'a>,
+    }
+
+    impl<'a> WriteCoil<'a> {
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame
+        }
+
+        pub fn index(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
+        }
+
+        pub fn is_on(&self) -> bool {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..]) == super::COIL_ON
+        }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
+    }
+
+    impl FixedLen for WriteCoil<'_> {
+        // Modbus RTU + start location + coil true/false
+        const LEN: u8 = 8;
+    }
+
+    impl FunctionCode for WriteCoil<'_> {
+        const FUNCTION: Function = function::WRITE_COIL;
+    }
+
+    impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
+
+    impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
+            }
+        }
+    }
+
+    impl<'a> From<WriteCoil<'a>> for Frame<'a> {
+        fn from(command: WriteCoil<'_>) -> Frame<'_> {
+            command.frame
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    pub struct WriteHoldingRegister<'a> {
+        frame: Frame<'a>,
+    }
+
+    impl<'a> WriteHoldingRegister<'a> {
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame
+        }
+
+        pub fn index(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
+        }
+
+        pub fn value(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
+        }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
+    }
+
+    impl FixedLen for WriteHoldingRegister<'_> {
+        // Modbus RTU + start location + register value
+        const LEN: u8 = 8;
+    }
+
+    impl FunctionCode for WriteHoldingRegister<'_> {
+        const FUNCTION: Function = function::WRITE_HOLDING_REGISTER;
+    }
+
+    impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
+
+    impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
+            }
+        }
+    }
+
+    impl<'a> From<WriteHoldingRegister<'a>> for Frame<'a> {
+        fn from(command: WriteHoldingRegister<'_>) -> Frame<'_> {
             command.frame
         }
     }
@@ -560,6 +668,25 @@ pub mod command {
                 .enumerate()
                 .map(|(idx, bit)| (self.start_index() + idx as u16, bit.as_bool()))
                 .take(self.coil_count().into())
+        }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
         }
     }
 
@@ -645,6 +772,25 @@ pub mod command {
                 .chunks(2)
                 .map(byteorder::BigEndian::read_u16)
         }
+
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> builder::Builder<'buff, builder::AddData> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .function(Self::FUNCTION)
+        }
+
+        pub fn response_exception<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+            exception: Exception,
+        ) -> Frame<'buff> {
+            builder::build_frame(response_buffer)
+                .for_address(self.frame.address())
+                .exception(Self::FUNCTION, exception)
+        }
     }
 
     impl PacketLen for WriteMultipleHoldingRegisters<'_> {
@@ -695,8 +841,6 @@ pub mod command {
 pub mod response {
     use bitvec::order::Lsb0;
     use byteorder::ByteOrder;
-
-    pub use super::{WriteCoil, WriteHoldingRegister};
 
     use crate::{frame::Frame, function, Error, FixedLen, Function, FunctionCode, PacketLen};
 
@@ -1105,6 +1249,142 @@ pub mod response {
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    pub struct WriteCoil<'a> {
+        frame: Frame<'a>,
+    }
+
+    impl<'a> WriteCoil<'a> {
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame
+        }
+
+        pub fn index(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
+        }
+
+        pub fn is_on(&self) -> bool {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..]) == super::COIL_ON
+        }
+    }
+
+    impl FixedLen for WriteCoil<'_> {
+        // Modbus RTU + start location + coil true/false
+        const LEN: u8 = 8;
+    }
+
+    impl FunctionCode for WriteCoil<'_> {
+        const FUNCTION: Function = function::WRITE_COIL;
+    }
+
+    impl<'a> TryFrom<&'a [u8]> for WriteCoil<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
+
+    impl<'a> TryFrom<Frame<'a>> for WriteCoil<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
+            }
+        }
+    }
+
+    impl<'a> From<WriteCoil<'a>> for Frame<'a> {
+        fn from(command: WriteCoil<'_>) -> Frame<'_> {
+            command.frame
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+    pub struct WriteHoldingRegister<'a> {
+        frame: Frame<'a>,
+    }
+
+    impl<'a> WriteHoldingRegister<'a> {
+        pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
+            Self {
+                frame: Frame::new_unchecked(bytes),
+            }
+        }
+
+        pub fn from_frame_unchecked(frame: Frame<'a>) -> Self {
+            Self { frame }
+        }
+
+        pub fn as_frame(&self) -> Frame<'a> {
+            self.frame
+        }
+
+        pub fn index(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
+        }
+
+        pub fn value(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
+        }
+    }
+
+    impl FixedLen for WriteHoldingRegister<'_> {
+        // Modbus RTU + start location + register value
+        const LEN: u8 = 8;
+    }
+
+    impl FunctionCode for WriteHoldingRegister<'_> {
+        const FUNCTION: Function = function::WRITE_HOLDING_REGISTER;
+    }
+
+    impl<'a> TryFrom<&'a [u8]> for WriteHoldingRegister<'a> {
+        type Error = crate::Error;
+
+        fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+            let frame = Frame::try_from(bytes)?;
+            Self::try_from(frame)
+        }
+    }
+
+    impl<'a> TryFrom<Frame<'a>> for WriteHoldingRegister<'a> {
+        type Error = crate::Error;
+
+        fn try_from(frame: Frame<'a>) -> Result<Self, Self::Error> {
+            if frame.function() != Self::FUNCTION {
+                Err(Error::UnexpectedFunction)
+            } else if !Self::is_valid_len(frame.raw_bytes().len()) {
+                Err(Error::DecodeInvalidLength)
+            } else {
+                Ok(Self::from_bytes_unchecked(frame.into_raw_bytes()))
+            }
+        }
+    }
+
+    impl<'a> From<WriteHoldingRegister<'a>> for Frame<'a> {
+        fn from(command: WriteHoldingRegister<'_>) -> Frame<'_> {
+            command.frame
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "defmt", derive(defmt::Format))]
     pub struct WriteMultipleCoils<'a> {
         frame: Frame<'a>,
     }
@@ -1240,7 +1520,7 @@ pub mod response {
 
 #[cfg(test)]
 mod tests {
-    use crate::{decoder::response::CommonResponses, function};
+    use crate::{decoder::response::CommonResponses, function, Frame};
 
     use super::{command::CommonCommands, *};
 
