@@ -1520,7 +1520,7 @@ pub mod response {
 
 #[cfg(test)]
 mod tests {
-    use crate::{decoder::response::CommonResponses, function};
+    use crate::{decoder::response::CommonResponses, function, Frame};
 
     use super::{command::CommonCommands, *};
 
