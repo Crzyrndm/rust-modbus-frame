@@ -76,12 +76,6 @@ impl<'b> Frame<'b> {
         self.data.iter().copied()
     }
 
-    /// Iterator returning the message bytes in ASCII format
-    pub fn ascii_bytes(&self) /*-> impl Iterator<Item = u8> + 'b*/
-    {
-        todo!()
-    }
-
     pub fn response_builder<'buff>(
         &self,
         response_buffer: &'buff mut [u8],
