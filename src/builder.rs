@@ -32,7 +32,7 @@ pub struct AddData;
 /// use modbus_frames::{builder, Function};
 ///
 /// let mut buff = [0u8; 20];
-/// let frame = builder::build_frame(&mut buff)
+/// let (frame, rem) = builder::build_frame(&mut buff)
 ///                 .for_address(1)
 ///                 .function(Function(2))
 ///                 .register(3)
@@ -83,7 +83,7 @@ impl<'b> Builder<'b, AddFunction> {
         }
     }
 
-    pub fn exception(self, function: Function, exception: Exception) -> Frame<'b> {
+    pub fn exception(self, function: Function, exception: Exception) -> (Frame<'b>, &'b mut [u8]) {
         self.function(Function(function.0 | 0x80))
             .byte(exception.0)
             .finalise()
@@ -181,10 +181,11 @@ impl<'b> Builder<'b, AddData> {
         })
     }
 
-    pub fn finalise(self) -> Frame<'b> {
+    pub fn finalise(self) -> (Frame<'b>, &'b mut [u8]) {
         let crc = calculate_crc16(&self.buffer[..self.idx]);
         byteorder::LittleEndian::write_u16(&mut self.buffer[self.idx..], crc);
-        Frame::new_unchecked(&self.buffer[..self.idx + 2])
+        let (frame, remainder) = self.buffer.split_at_mut(self.idx + 2);
+        (Frame::new_unchecked(frame), remainder)
     }
 }
 
@@ -221,7 +222,7 @@ mod tests {
         assert_eq!(12, frame.bytes_consumed());
         assert_eq!(8, frame.bytes_remaining());
         // as frame
-        let frame = frame.finalise();
+        let (frame, _remainder) = frame.finalise();
         assert_eq!(14, frame.raw_bytes().len());
         assert_eq!(123, frame.address());
         assert_eq!(Function(213), frame.function());
@@ -236,7 +237,7 @@ mod tests {
     fn count_registers() {
         let mut buff = [0; 20];
         let registers = [1, 2, 3];
-        let frame = build_frame(&mut buff)
+        let (frame, _remainder) = build_frame(&mut buff)
             .for_address(1)
             .function(Function(1))
             .register(0)
@@ -256,7 +257,7 @@ mod tests {
     fn count_bits() {
         let mut buff = [0; 20];
         let encoding = [0x62, 0xA];
-        let frame = build_frame(&mut buff)
+        let (frame, _remainder) = build_frame(&mut buff)
             .for_address(1)
             .function(Function(1))
             .register(0)
