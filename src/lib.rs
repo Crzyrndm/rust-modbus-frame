@@ -23,9 +23,9 @@
 //! #                       .registers([0x13, 0x25])
 //! #                       .finalise();
 //!
-//! use modbus_frames::decoder::command::CommonCommands;
-//! let decoded = CommonCommands::try_from(command_frame).unwrap();
-//! assert!(matches!(decoded, CommonCommands::ReadCoils(_)));
+//! use modbus_frames::decoder::CommonRequests;
+//! let decoded = CommonRequests::try_from(command_frame).unwrap();
+//! assert!(matches!(decoded, CommonRequests::ReadCoils(_)));
 //! ```
 //!
 //! ### Decoding Responses
@@ -39,7 +39,7 @@
 //! #           .byte(4)
 //! #           .bytes([0xCD, 0x6B, 0xB2, 0x7F])
 //! #           .finalise();
-//! use modbus_frames::decoder::response::CommonResponses;
+//! use modbus_frames::decoder::CommonResponses;
 //! let decoded = CommonResponses::try_from(response_frame).unwrap();
 //! assert!(matches!(decoded, CommonResponses::ReadCoils(_)));
 //! ```
@@ -69,6 +69,8 @@ pub mod decoder;
 pub mod exception;
 pub mod frame;
 pub mod function;
+pub mod request;
+pub mod response;
 
 pub use exception::Exception;
 pub use frame::Frame;
@@ -134,6 +136,13 @@ pub enum Error {
     /// message size is invalid for the function code
     DecodeInvalidLength,
 }
+
+/// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
+/// All other values are invalid
+pub const COIL_ON: u16 = 0xFF00;
+/// When Writing/Reading a single coil, `ON == 0xFF00` and `OFF == 0x0000`
+/// All other values are invalid
+pub const COIL_OFF: u16 = 0x0000;
 
 // std::error::Error trait obviously isn't available in no_std
 // whould this implement any other error traits?
