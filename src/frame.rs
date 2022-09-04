@@ -1,6 +1,6 @@
 use byteorder::ByteOrder;
 
-use crate::{calculate_crc16, verify_crc16, Error, Function};
+use crate::{builder, calculate_crc16, verify_crc16, Error, Exception, Function};
 
 /// Frame provides functions to view a series of bytes in RTU format as a modbus data frame
 /// `|address(1)|function(1)|payload(0..252)|crc16(2)`
@@ -80,6 +80,25 @@ impl<'b> Frame<'b> {
     pub fn ascii_bytes(&self) /*-> impl Iterator<Item = u8> + 'b*/
     {
         todo!()
+    }
+
+    pub fn response_builder<'buff>(
+        &self,
+        response_buffer: &'buff mut [u8],
+    ) -> builder::Builder<'buff, builder::AddData> {
+        builder::build_frame(response_buffer)
+            .for_address(self.address())
+            .function(self.function())
+    }
+
+    pub fn response_exception<'buff>(
+        &self,
+        response_buffer: &'buff mut [u8],
+        exception: Exception,
+    ) -> Frame<'buff> {
+        builder::build_frame(response_buffer)
+            .for_address(self.address())
+            .exception(self.function(), exception)
     }
 }
 
