@@ -17,7 +17,7 @@
 //! ```
 //! # use modbus_frames::{builder, function};
 //! # let mut buf = [0; 256];
-//! # let command_frame = builder::build_frame(&mut buf)
+//! # let (command_frame, rem) = builder::build_frame(&mut buf)
 //! #                       .for_address(0x11)
 //! #                       .function(function::READ_COILS)
 //! #                       .registers([0x13, 0x25])
@@ -33,7 +33,7 @@
 //! ```
 //! # use modbus_frames::{builder, function};
 //! # let mut buf = [0; 256];
-//! # let response_frame = builder::build_frame(&mut buf)
+//! # let (response_frame, rem) = builder::build_frame(&mut buf)
 //! #           .for_address(0xB)
 //! #           .function(function::READ_COILS)
 //! #           .byte(4)
@@ -53,7 +53,7 @@
 //! use modbus_frames::{builder, Function};
 //!
 //! let mut buff = [0u8; 20];
-//! let frame = builder::build_frame(&mut buff)
+//! let (frame, rem) = builder::build_frame(&mut buff)
 //!                 .for_address(1)
 //!                 .function(Function(2))
 //!                 .register(3)

@@ -95,7 +95,7 @@ impl<'b> Frame<'b> {
         &self,
         response_buffer: &'buff mut [u8],
         exception: Exception,
-    ) -> Frame<'buff> {
+    ) -> (Frame<'buff>, &'buff mut [u8]) {
         builder::build_frame(response_buffer)
             .for_address(self.address())
             .exception(self.function(), exception)
