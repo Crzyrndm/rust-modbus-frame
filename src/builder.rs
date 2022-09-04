@@ -1,6 +1,10 @@
 //! construct a modbus frame structure in a provided buffer
 //! internally, this uses the RTU format without the CRC
 
+use core::ops::Rem;
+
+use byteorder::ByteOrder;
+
 use crate::{calculate_crc16, frame::Frame, Exception, Function};
 
 /// Write modbus messages more conveniently and coherently using named operations.
@@ -96,18 +100,42 @@ impl<'b> Builder<'b, AddData> {
         self
     }
 
-    /// copied directly into the frame data as is
-    pub fn byte(self, b: u8) -> Builder<'b, AddData> {
-        self.bytes([b].iter().copied())
+    /// bytes copied directly into the frame data as is
+    pub fn byte(mut self, b: u8) -> Builder<'b, AddData> {
+        self.buffer[self.idx] = b;
+        self.idx += 1;
+        self
+    }
+
+    /// bits are packed into bytes, first bit in LSB
+    /// returns the updated builder and the number of bits actually written which is otherwise not
+    /// discoverable (can't tell how many trailing `false` values were present)
+    pub fn bits(mut self, bits: impl IntoIterator<Item = bool>) -> (Builder<'b, AddData>, usize) {
+        // LSB is the addressed coil with following addresses in order
+        let mut b = 0;
+        let mut bit_count = 0;
+        for bit in bits {
+            let bit_idx = bit_count.rem(u8::BITS as usize);
+            if bit {
+                b |= 1 << bit_idx;
+            }
+            if u8::BITS as usize == bit_idx + 1 {
+                self = self.byte(b);
+                b = 0;
+            }
+            bit_count += 1
+        }
+        if bit_count.rem(u8::BITS as usize) != 0 {
+            self = self.byte(b);
+        }
+
+        (self, bit_count)
     }
 
     /// registers copied into the frame data as big endian bytes
     pub fn registers<I: IntoIterator<Item = u16>>(mut self, iter: I) -> Builder<'b, AddData> {
         for register in iter {
-            let bytes = register.to_be_bytes();
-            self.buffer[self.idx] = bytes[0];
-            self.buffer[self.idx + 1] = bytes[1];
-
+            byteorder::BigEndian::write_u16(&mut self.buffer[self.idx..], register);
             self.idx += 2;
         }
         self
@@ -118,25 +146,52 @@ impl<'b> Builder<'b, AddData> {
         self.registers([r].iter().copied())
     }
 
-    pub fn count_following(mut self, to_count: impl FnOnce(Self) -> Self) -> Self {
+    pub fn count_following_bytes(mut self, to_count: impl FnOnce(Self) -> Self) -> Self {
         let current_idx = self.idx;
         self.idx += 1;
         let builder = to_count(self);
         // -1 because we're not counting the marker byte
-        builder.buffer[current_idx] = (builder.idx - current_idx - 1) as u8;
+        let count = (builder.idx - current_idx - 1) as u8;
+        builder.buffer[current_idx] = count;
         builder
     }
 
+    /// This formats a set of registers as [register_count (u16), byte count (u8), registers... ([u16])]
+    /// This would be used in e.g. "WriteMultipleHoldingRegisters" to avoid double iteration of the registers source
+    pub fn count_registers(mut self, registers: impl IntoIterator<Item = u16>) -> Self {
+        let current_idx = self.idx;
+        self.idx += 2;
+        let builder = self.count_following_bytes(|builder| builder.registers(registers));
+
+        let count = builder.buffer[current_idx + 2] as u16 / 2; // num bytes written / 2
+        byteorder::BigEndian::write_u16(&mut builder.buffer[current_idx..], count);
+        builder
+    }
+
+    /// This formats a set of registers as [register_count (u16), byte count (u8), registers... ([u16])]
+    /// This would be used in e.g. "WriteMultipleCoils" to avoid double iteration of the bits source
+    pub fn count_bits(mut self, bits: impl IntoIterator<Item = bool>) -> Self {
+        let current_idx = self.idx;
+        self.idx += 2;
+
+        self.count_following_bytes(|builder| {
+            let (builder, bit_count) = builder.bits(bits);
+            byteorder::BigEndian::write_u16(&mut builder.buffer[current_idx..], bit_count as u16);
+            builder
+        })
+    }
+
     pub fn finalise(self) -> Frame<'b> {
-        let crc = calculate_crc16(&self.buffer[..self.idx]).to_le_bytes();
-        self.buffer[self.idx] = crc[0];
-        self.buffer[self.idx + 1] = crc[1];
+        let crc = calculate_crc16(&self.buffer[..self.idx]);
+        byteorder::LittleEndian::write_u16(&mut self.buffer[self.idx..], crc);
         Frame::new_unchecked(&self.buffer[..self.idx + 2])
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use byteorder::ByteOrder;
+
     use super::build_frame;
     use crate::{calculate_crc16, Function};
 
@@ -156,8 +211,8 @@ mod tests {
         assert_eq!(2, frame.bytes_consumed());
         assert_eq!(18, frame.bytes_remaining());
 
-        let frame = frame.count_following(|frame| {
-            frame
+        let frame = frame.count_following_bytes(|builder| {
+            builder
                 .byte(1)
                 .register(4)
                 .bytes([2, 3].iter().copied())
@@ -175,5 +230,59 @@ mod tests {
         let frame_crc = frame.calculate_crc();
         let crc = calculate_crc16(&buff[..12]);
         assert_eq!(crc, frame_crc);
+    }
+
+    #[test]
+    fn count_registers() {
+        let mut buff = [0; 20];
+        let registers = [1, 2, 3];
+        let frame = build_frame(&mut buff)
+            .for_address(1)
+            .function(Function(1))
+            .register(0)
+            .count_registers(registers)
+            .finalise();
+        // 2 for address, 2 for count, 1 for byte count, 2x3 for values
+        assert_eq!(frame.payload().len(), 11);
+        assert_eq!(frame.payload()[4], 6); // 6 bytes
+        assert_eq!(frame.payload()[2..4], [0, 3]); // 3 registers
+
+        let mut decoded = [0; 3];
+        byteorder::BigEndian::read_u16_into(&frame.payload()[5..11], &mut decoded);
+        assert_eq!(decoded, registers);
+    }
+
+    #[test]
+    fn count_bits() {
+        let mut buff = [0; 20];
+        let encoding = [0x62, 0xA];
+        let frame = build_frame(&mut buff)
+            .for_address(1)
+            .function(Function(1))
+            .register(0)
+            .count_bits(
+                encoding
+                    .iter()
+                    .flat_map(|b| {
+                        // byte to bits (LSB first)
+                        [
+                            b & 0x01 == 0x01,
+                            b & 0x02 == 0x02,
+                            b & 0x04 == 0x04,
+                            b & 0x08 == 0x08,
+                            b & 0x10 == 0x10,
+                            b & 0x20 == 0x20,
+                            b & 0x40 == 0x40,
+                            b & 0x80 == 0x80,
+                        ]
+                    })
+                    .take(10),
+            )
+            .finalise();
+        // 2 for address, 2 for count, 1 for byte count, 2 for values
+        assert_eq!(frame.payload().len(), 7);
+        assert_eq!(frame.payload()[4], 2); // 2 bytes
+        assert_eq!(frame.payload()[2..4], [0, 10]); // 10 bits
+        assert_eq!(frame.payload()[5..7], [0x62, 0x02]);
     }
 }

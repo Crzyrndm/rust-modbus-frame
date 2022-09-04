@@ -17,6 +17,8 @@ pub mod command {
     use crate::frame::Frame;
     use crate::{builder, function, Error, Exception, FixedLen, Function, FunctionCode, PacketLen};
 
+    use super::response;
+
     /// The default responses for a decode type
     /// ```
     /// use modbus_frames::{builder, function, decoder::command::CommonCommands};
@@ -114,6 +116,16 @@ pub mod command {
     }
 
     impl<'a> ReadCoils<'a> {
+        pub fn new(frame_buffer: &'a mut [u8], address: u8, start_index: u16, count: u16) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([start_index, count])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -140,33 +152,13 @@ pub mod command {
             &self,
             response_buffer: &'buff mut [u8],
             coils: impl IntoIterator<Item = bool>,
-        ) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .count_following(|mut builder| {
-                    // LSB is the addressed coil with following addresses in order
-                    let coil_iter = coils.into_iter().enumerate();
-
-                    let mut write_last = false;
-                    let mut b = 0;
-                    for (idx, val) in coil_iter {
-                        write_last = true;
-                        if val {
-                            b |= 1 << idx;
-                        }
-                        if 0 == idx.rem(u8::BITS as usize) {
-                            builder = builder.byte(b);
-                            b = 0;
-                            write_last = false;
-                        }
-                    }
-                    if write_last {
-                        builder = builder.byte(b);
-                    }
-
-                    builder
-                })
-                .finalise()
+        ) -> response::ReadCoils<'buff> {
+            response::ReadCoils::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .count_bits(coils)
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
@@ -222,6 +214,16 @@ pub mod command {
     }
 
     impl<'a> ReadDiscreteInputs<'a> {
+        pub fn new(frame_buffer: &'a mut [u8], address: u8, start_index: u16, count: u16) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([start_index, count])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -248,33 +250,35 @@ pub mod command {
             &self,
             response_buffer: &'buff mut [u8],
             inputs: impl IntoIterator<Item = bool>,
-        ) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .count_following(|mut builder| {
-                    // LSB is the addressed input with following addresses in order
-                    let coil_iter = inputs.into_iter().enumerate();
+        ) -> response::ReadDiscreteInputs<'buff> {
+            response::ReadDiscreteInputs::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .count_following_bytes(|mut builder| {
+                        // LSB is the addressed input with following addresses in order
+                        let coil_iter = inputs.into_iter().enumerate();
 
-                    let mut write_last = false;
-                    let mut b = 0;
-                    for (idx, val) in coil_iter {
-                        write_last = true;
-                        if val {
-                            b |= 1 << idx;
+                        let mut write_last = false;
+                        let mut b = 0;
+                        for (idx, val) in coil_iter {
+                            write_last = true;
+                            if val {
+                                b |= 1 << idx;
+                            }
+                            if 0 == idx.rem(u8::BITS as usize) {
+                                builder = builder.byte(b);
+                                b = 0;
+                                write_last = false;
+                            }
                         }
-                        if 0 == idx.rem(u8::BITS as usize) {
+                        if write_last {
                             builder = builder.byte(b);
-                            b = 0;
-                            write_last = false;
                         }
-                    }
-                    if write_last {
-                        builder = builder.byte(b);
-                    }
 
-                    builder
-                })
-                .finalise()
+                        builder
+                    })
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
@@ -330,6 +334,21 @@ pub mod command {
     }
 
     impl<'a> ReadHoldingRegisters<'a> {
+        pub fn new(
+            frame_buffer: &'a mut [u8],
+            address: u8,
+            start_index: u16,
+            register_count: u16,
+        ) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([start_index, register_count])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -356,11 +375,13 @@ pub mod command {
             &self,
             response_buffer: &'buff mut [u8],
             registers: impl IntoIterator<Item = u16>,
-        ) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .count_following(|builder| builder.registers(registers))
-                .finalise()
+        ) -> response::ReadHoldingRegisters<'buff> {
+            response::ReadHoldingRegisters::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .count_following_bytes(|builder| builder.registers(registers))
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
@@ -416,6 +437,21 @@ pub mod command {
     }
 
     impl<'a> ReadInputRegisters<'a> {
+        pub fn new(
+            frame_buffer: &'a mut [u8],
+            address: u8,
+            start_index: u16,
+            register_count: u16,
+        ) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([start_index, register_count])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -442,11 +478,13 @@ pub mod command {
             &self,
             response_buffer: &'buff mut [u8],
             registers: impl IntoIterator<Item = u16>,
-        ) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .count_following(|builder| builder.registers(registers))
-                .finalise()
+        ) -> response::ReadInputRegisters<'buff> {
+            response::ReadInputRegisters::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .count_following_bytes(|builder| builder.registers(registers))
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
@@ -502,6 +540,16 @@ pub mod command {
     }
 
     impl<'a> WriteCoil<'a> {
+        pub fn new(frame_buffer: &'a mut [u8], address: u8, index: u16, value: u16) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([index, value])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -589,6 +637,16 @@ pub mod command {
     }
 
     impl<'a> WriteHoldingRegister<'a> {
+        pub fn new(frame_buffer: &'a mut [u8], address: u8, index: u16, value: u16) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .registers([index, value])
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -672,6 +730,22 @@ pub mod command {
     }
 
     impl<'a> WriteMultipleCoils<'a> {
+        pub fn new(
+            frame_buffer: &'a mut [u8],
+            address: u8,
+            start_index: u16,
+            coils: impl IntoIterator<Item = bool>,
+        ) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .register(start_index)
+                    .count_bits(coils)
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -704,7 +778,7 @@ pub mod command {
                 &self.frame.payload()[5..]
             };
 
-            // iteration order is from right to left (least significant first)
+            // iteration order is least significant first
             bitvec::slice::BitSlice::<u8, Msb0>::from_slice(data)
                 .iter()
                 .enumerate()
@@ -712,11 +786,16 @@ pub mod command {
                 .take(self.coil_count().into())
         }
 
-        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .registers([self.start_index(), self.coil_count()])
-                .finalise()
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> response::WriteMultipleCoils<'buff> {
+            response::WriteMultipleCoils::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .registers([self.start_index(), self.coil_count()])
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
@@ -779,6 +858,22 @@ pub mod command {
     }
 
     impl<'a> WriteMultipleHoldingRegisters<'a> {
+        pub fn new(
+            frame_buffer: &'a mut [u8],
+            address: u8,
+            start_index: u16,
+            registers: impl IntoIterator<Item = u16>,
+        ) -> Self {
+            Self::from_frame_unchecked(
+                builder::build_frame(frame_buffer)
+                    .for_address(address)
+                    .function(Self::FUNCTION)
+                    .register(start_index)
+                    .count_registers(registers)
+                    .finalise(),
+            )
+        }
+
         pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
             Self {
                 frame: Frame::new_unchecked(bytes),
@@ -811,11 +906,16 @@ pub mod command {
                 .map(byteorder::BigEndian::read_u16)
         }
 
-        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
-            self.frame
-                .response_builder(response_buffer)
-                .registers([self.start_index(), self.register_count()])
-                .finalise()
+        pub fn response_builder<'buff>(
+            &self,
+            response_buffer: &'buff mut [u8],
+        ) -> response::WriteMultipleHoldingRegisters<'buff> {
+            response::WriteMultipleHoldingRegisters::from_frame_unchecked(
+                self.frame
+                    .response_builder(response_buffer)
+                    .registers([self.start_index(), self.register_count()])
+                    .finalise(),
+            )
         }
 
         pub fn response_exception<'buff>(
