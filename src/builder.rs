@@ -108,7 +108,8 @@ impl<'b> Builder<'b, AddData> {
     }
 
     /// bits are packed into bytes, first bit in LSB
-    /// returns the updated builder and the number of bits actually written
+    /// returns the updated builder and the number of bits actually written which is otherwise not
+    /// discoverable (can't tell how many trailing `false` values were present)
     pub fn bits(mut self, bits: impl IntoIterator<Item = bool>) -> (Builder<'b, AddData>, usize) {
         // LSB is the addressed coil with following addresses in order
         let mut b = 0;
@@ -162,7 +163,7 @@ impl<'b> Builder<'b, AddData> {
         self.idx += 2;
         let builder = self.count_following_bytes(|builder| builder.registers(registers));
 
-        let count = builder.buffer[current_idx + 2] as u16 / 2;
+        let count = builder.buffer[current_idx + 2] as u16 / 2; // num bytes written / 2
         byteorder::BigEndian::write_u16(&mut builder.buffer[current_idx..], count);
         builder
     }
@@ -173,12 +174,11 @@ impl<'b> Builder<'b, AddData> {
         let current_idx = self.idx;
         self.idx += 2;
 
-        let builder = self.count_following_bytes(|builder| {
+        self.count_following_bytes(|builder| {
             let (builder, bit_count) = builder.bits(bits);
             byteorder::BigEndian::write_u16(&mut builder.buffer[current_idx..], bit_count as u16);
             builder
-        });
-        builder
+        })
     }
 
     pub fn finalise(self) -> Frame<'b> {
