@@ -96,18 +96,18 @@ pub const WRITE_MULTIPLE_COILS: Function = Function(15);
 ///    Number of preset/written holding registers (16-bit)
 pub const WRITE_MULTIPLE_HOLDING_REGISTERS: Function = Function(16);
 
-pub const MASK_WRITE_REGISTER: Function = Function(22);
-pub const READ_WRITE_MULTIPLE_REGISTERS: Function = Function(23);
-pub const READ_FIFO_QUEUE: Function = Function(23);
+// pub const MASK_WRITE_REGISTER: Function = Function(22);
+// pub const READ_WRITE_MULTIPLE_REGISTERS: Function = Function(23);
+// pub const READ_FIFO_QUEUE: Function = Function(23);
 
-//diagnostics
-pub const READ_EXCEPTION_STATUS: Function = Function(7);
-pub const DIAGNOSTIC: Function = Function(8);
-pub const GET_COMM_EVENT_COUNTER: Function = Function(11);
-pub const GET_COM_EVENT_LOG: Function = Function(12);
-pub const REPORT_SLAVE_ID: Function = Function(17);
-pub const READ_DEVICE_ID: Function = Function(43);
+// //diagnostics
+// pub const READ_EXCEPTION_STATUS: Function = Function(7);
+// pub const DIAGNOSTIC: Function = Function(8);
+// pub const GET_COMM_EVENT_COUNTER: Function = Function(11);
+// pub const GET_COM_EVENT_LOG: Function = Function(12);
+// pub const REPORT_SLAVE_ID: Function = Function(17);
+// pub const READ_DEVICE_ID: Function = Function(43);
 
-// file access
-pub const READ_FILE: Function = Function(20);
-pub const WRITE_FILE: Function = Function(21);
+// // file access
+// pub const READ_FILE: Function = Function(20);
+// pub const WRITE_FILE: Function = Function(21);
