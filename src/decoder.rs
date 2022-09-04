@@ -8,6 +8,8 @@ pub const COIL_ON: u16 = 0xFF00;
 pub const COIL_OFF: u16 = 0x0000;
 
 pub mod command {
+    use core::ops::Rem;
+
     use bitvec::macros::internal::funty::Fundamental;
     use bitvec::order::Msb0;
     use byteorder::ByteOrder;
@@ -137,10 +139,34 @@ pub mod command {
         pub fn response_builder<'buff>(
             &self,
             response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+            coils: impl IntoIterator<Item = bool>,
+        ) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .count_following(|mut builder| {
+                    // LSB is the addressed coil with following addresses in order
+                    let coil_iter = coils.into_iter().enumerate();
+
+                    let mut write_last = false;
+                    let mut b = 0;
+                    for (idx, val) in coil_iter {
+                        write_last = true;
+                        if val {
+                            b |= 1 << idx;
+                        }
+                        if 0 == idx.rem(u8::BITS as usize) {
+                            builder = builder.byte(b);
+                            b = 0;
+                            write_last = false;
+                        }
+                    }
+                    if write_last {
+                        builder = builder.byte(b);
+                    }
+
+                    builder
+                })
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -148,9 +174,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -223,10 +247,34 @@ pub mod command {
         pub fn response_builder<'buff>(
             &self,
             response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+            inputs: impl IntoIterator<Item = bool>,
+        ) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .count_following(|mut builder| {
+                    // LSB is the addressed input with following addresses in order
+                    let coil_iter = inputs.into_iter().enumerate();
+
+                    let mut write_last = false;
+                    let mut b = 0;
+                    for (idx, val) in coil_iter {
+                        write_last = true;
+                        if val {
+                            b |= 1 << idx;
+                        }
+                        if 0 == idx.rem(u8::BITS as usize) {
+                            builder = builder.byte(b);
+                            b = 0;
+                            write_last = false;
+                        }
+                    }
+                    if write_last {
+                        builder = builder.byte(b);
+                    }
+
+                    builder
+                })
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -234,9 +282,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -309,10 +355,12 @@ pub mod command {
         pub fn response_builder<'buff>(
             &self,
             response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+            registers: impl IntoIterator<Item = u16>,
+        ) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .count_following(|builder| builder.registers(registers))
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -320,9 +368,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -395,10 +441,12 @@ pub mod command {
         pub fn response_builder<'buff>(
             &self,
             response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+            registers: impl IntoIterator<Item = u16>,
+        ) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .count_following(|builder| builder.registers(registers))
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -406,9 +454,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -474,17 +520,19 @@ pub mod command {
             byteorder::BigEndian::read_u16(&self.frame.payload()[0..])
         }
 
-        pub fn is_on(&self) -> bool {
-            byteorder::BigEndian::read_u16(&self.frame.payload()[2..]) == super::COIL_ON
+        pub fn value(&self) -> u16 {
+            byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
 
-        pub fn response_builder<'buff>(
-            &self,
-            response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+        pub fn is_on(&self) -> bool {
+            self.value() == super::COIL_ON
+        }
+
+        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .registers([self.index(), self.value()])
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -492,9 +540,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -565,13 +611,11 @@ pub mod command {
             byteorder::BigEndian::read_u16(&self.frame.payload()[2..])
         }
 
-        pub fn response_builder<'buff>(
-            &self,
-            response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .registers([self.index(), self.value()])
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -579,9 +623,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -670,13 +712,11 @@ pub mod command {
                 .take(self.coil_count().into())
         }
 
-        pub fn response_builder<'buff>(
-            &self,
-            response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .registers([self.start_index(), self.coil_count()])
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -684,9 +724,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
@@ -773,13 +811,11 @@ pub mod command {
                 .map(byteorder::BigEndian::read_u16)
         }
 
-        pub fn response_builder<'buff>(
-            &self,
-            response_buffer: &'buff mut [u8],
-        ) -> builder::Builder<'buff, builder::AddData> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .function(Self::FUNCTION)
+        pub fn response_builder<'buff>(&self, response_buffer: &'buff mut [u8]) -> Frame<'buff> {
+            self.frame
+                .response_builder(response_buffer)
+                .registers([self.start_index(), self.register_count()])
+                .finalise()
         }
 
         pub fn response_exception<'buff>(
@@ -787,9 +823,7 @@ pub mod command {
             response_buffer: &'buff mut [u8],
             exception: Exception,
         ) -> Frame<'buff> {
-            builder::build_frame(response_buffer)
-                .for_address(self.frame.address())
-                .exception(Self::FUNCTION, exception)
+            self.frame.response_exception(response_buffer, exception)
         }
     }
 
