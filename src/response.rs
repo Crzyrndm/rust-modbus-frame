@@ -1,4 +1,4 @@
-use crate::{function, Error, FixedLen, Frame, Function, FunctionCode, PacketLen};
+use crate::{builder, function, Error, FixedLen, Frame, Function, FunctionCode, PacketLen};
 
 use bitvec::prelude::*;
 use byteorder::ByteOrder;
@@ -10,6 +10,19 @@ pub struct ReadCoils<'a> {
 }
 
 impl<'a> ReadCoils<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        coils: impl IntoIterator<Item = bool>,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .count_following_bytes(|builder| builder.bits(coils).0)
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -91,6 +104,19 @@ pub struct ReadDiscreteInputs<'a> {
 }
 
 impl<'a> ReadDiscreteInputs<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        inputs: impl IntoIterator<Item = bool>,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .count_following_bytes(|builder| builder.bits(inputs).0)
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -172,6 +198,19 @@ pub struct ReadHoldingRegisters<'a> {
 }
 
 impl<'a> ReadHoldingRegisters<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        registers: impl IntoIterator<Item = u16>,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .count_following_bytes(|builder| builder.registers(registers))
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -247,6 +286,19 @@ pub struct ReadInputRegisters<'a> {
 }
 
 impl<'a> ReadInputRegisters<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        registers: impl IntoIterator<Item = u16>,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .count_following_bytes(|builder| builder.registers(registers))
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -322,6 +374,27 @@ pub struct WriteCoil<'a> {
 }
 
 impl<'a> WriteCoil<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        coil_address: u16,
+        write_on: bool,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .registers([
+                coil_address,
+                if write_on {
+                    crate::COIL_ON
+                } else {
+                    crate::COIL_OFF
+                },
+            ])
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -390,6 +463,20 @@ pub struct WriteHoldingRegister<'a> {
 }
 
 impl<'a> WriteHoldingRegister<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        register_address: u16,
+        register_value: u16,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .registers([register_address, register_value])
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -458,6 +545,20 @@ pub struct WriteMultipleCoils<'a> {
 }
 
 impl<'a> WriteMultipleCoils<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        start_address: u16,
+        coil_count: u16,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .registers([start_address, coil_count])
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
@@ -525,6 +626,20 @@ pub struct WriteMultipleHoldingRegisters<'a> {
 }
 
 impl<'a> WriteMultipleHoldingRegisters<'a> {
+    pub fn new(
+        frame_buffer: &'a mut [u8],
+        address: u8,
+        start_address: u16,
+        register_count: u16,
+    ) -> (Self, &'a mut [u8]) {
+        let (frame, rem) = builder::build_frame(frame_buffer)
+            .for_address(address)
+            .function(Self::FUNCTION)
+            .registers([start_address, register_count])
+            .finalise();
+        (Self::from_frame_unchecked(frame), rem)
+    }
+
     pub fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         Self {
             frame: Frame::new_unchecked(bytes),
